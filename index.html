@@ -9,18 +9,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
+
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap');
+
   :root{
-    --navy-900:#061a2e;
-    --navy-800:#0a2747;
-    --navy-700:#123a63;
-    --orange-500:#FF6C0E;
-    --blue-500:#2c6fb0;
-    --bg:#eef2f6;
-    --card-bg:#ffffff;
-    --border:#dbe3ec;
-    --text-900:#0f1f2e;
-    --text-600:#51677d;
-    --text-400:#8497a8;
+    --navy:#003B71;
+    --navy2:#0b2a4a;
+    --navy3:#123a63;
+    --orange:#FF6C0E;
+    --bg:#eef3f7;
+    --card:#fff;
+    --line:#dbe5ee;
+    --muted:#60758a;
+    --text:#102235;
     --c-optimal:#1f9d6b;
     --c-overstock:#d9a72e;
     --c-understock:#2c8fae;
@@ -28,304 +29,149 @@
     --c-idle:#7c8aa0;
     --c-dead:#6b2737;
     --c-negative:#9b2fae;
-    --c-unknown:#a8b3bf;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text-900);}
+  body{margin:0;font-family:'Montserrat','Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
 
-  /* ── HEADER ── 48px target */
-  header{
-    background:linear-gradient(135deg,var(--navy-900),var(--navy-700));
-    color:#fff;
-    padding:8px 20px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    border-bottom:3px solid var(--orange-500);
-    min-height:0;
-  }
-  header h1{margin:0;font-size:16px;font-weight:700;letter-spacing:.1px;line-height:1.2;}
-  header .sub{font-size:10.5px;color:#a9c1d6;margin-top:1px;}
+  /* HEADER */
+  header{height:46px;background:linear-gradient(135deg,var(--navy),var(--navy3));border-bottom:3px solid var(--orange);display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;}
+  header h1{margin:0;font-size:15px;font-weight:800;letter-spacing:.1px;}
+  header .sub{font-size:9.5px;color:#b5cade;margin-top:1px;}
   .header-controls{display:flex;gap:8px;align-items:center;}
-  .header-controls select{
-    background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);
-    color:#fff;border-radius:5px;padding:4px 8px;font-size:11.5px;
-  }
+  .header-controls select{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:5px;padding:4px 8px;font-size:11px;font-family:inherit;}
   .header-controls select option{color:#000;}
-  select,input[type="text"]{
-    background:#fff;border:1px solid var(--border);
-    border-radius:5px;padding:4px 8px;font-size:11.5px;color:var(--text-900);
-  }
+  .auth-status{font-size:10.5px;color:#b5cade;}
 
-  /* ── TABS ── 43px target, sticky */
-  .tab-bar{
-    background:var(--navy-800);
-    display:flex;gap:0;padding:0 20px;
-    position:sticky;top:0;z-index:100;
-    overflow-x:auto;scrollbar-width:none;
-  }
+  /* TABS */
+  .tab-bar{height:38px;background:var(--navy2);display:flex;padding:0 18px;gap:4px;position:sticky;top:0;z-index:100;overflow-x:auto;scrollbar-width:none;}
   .tab-bar::-webkit-scrollbar{display:none;}
-  .tab-btn{
-    background:transparent;border:none;color:#a9c1d6;
-    font-size:12px;font-weight:600;padding:10px 15px;
-    cursor:pointer;border-bottom:3px solid transparent;
-    white-space:nowrap;flex-shrink:0;line-height:1;
-  }
-  .tab-btn.active{color:#fff;border-bottom-color:var(--orange-500);}
+  .tab-btn{background:transparent;border:none;border-bottom:3px solid transparent;color:#b5cade;font-size:11px;font-weight:700;padding:12px 14px 9px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+  .tab-btn.active{color:#fff;border-bottom-color:var(--orange);}
   .tab-btn:hover{color:#fff;}
 
-  /* ── FILTER BAR ── 44px target, sticky below tabs */
-  .filter-bar{
-    background:#fff;border-bottom:1px solid var(--border);
-    padding:6px 20px;
-    display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;
-    position:sticky;top:43px;z-index:90;
-    scrollbar-width:none;
-  }
+  /* FILTER BAR */
+  .filter-bar{height:43px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:7px;align-items:center;padding:6px 18px;position:sticky;top:38px;z-index:90;overflow-x:auto;scrollbar-width:none;}
   .filter-bar::-webkit-scrollbar{display:none;}
-  .filter-group{display:flex;align-items:center;gap:3px;flex-shrink:0;}
-  .filter-bar label{
-    font-size:9.5px;font-weight:700;color:var(--text-400);
-    text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;
-  }
-  .filter-bar select,.filter-bar input[type="text"]{
-    padding:4px 7px;font-size:11px;border-radius:4px;
-    height:28px;min-width:0;
-  }
-  .filter-bar select:focus,.filter-bar input:focus{outline:none;border-color:var(--orange-500);}
-  .filter-group.search-group{flex:1;min-width:120px;}
-  .filter-group.search-group input{width:100%;}
+  .filter-group{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  .filter-bar label{font-size:8.5px;color:#8193a6;text-transform:uppercase;font-weight:800;letter-spacing:.35px;}
+  .filter-bar select,.filter-bar input{height:27px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-size:10px;color:#30475c;font-family:inherit;}
+  .filter-group.search-group{flex:1;min-width:100px;}
+  .filter-group.search-group input{width:100%;color:#8797a6;}
 
-  /* ── MAIN wrapper ── */
-  main{padding:10px 20px 40px;max-width:1440px;margin:0 auto;}
+  main{max-width:1390px;margin:0 auto;padding:10px 16px 30px;}
 
-  /* ── ICON KPI ROW ── 80px target */
-  .icon-kpi-row{
-    display:grid;grid-template-columns:repeat(6,1fr);
-    gap:8px;margin-bottom:8px;
-  }
-  .icon-kpi-card{
-    background:var(--card-bg);border:1px solid var(--border);border-radius:7px;
-    padding:8px 10px;display:flex;gap:9px;align-items:center;
-    min-height:0;
-  }
-  .icon-kpi-card .icon-circle{
-    width:30px;height:30px;border-radius:7px;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .icon-kpi-card .label{
-    font-size:9px;color:var(--text-600);text-transform:uppercase;
-    letter-spacing:.3px;font-weight:700;line-height:1.1;
-  }
-  .icon-kpi-card .value{
-    font-size:17px;font-weight:700;color:var(--navy-900);
-    margin-top:1px;line-height:1.1;
-  }
-  .icon-kpi-card .delta{font-size:9.5px;color:var(--text-400);}
-  .delta.up{color:var(--c-oos)!important;}
-  .delta.down{color:var(--c-optimal)!important;}
+  /* KPI ROW */
+  .icon-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
+  .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:72px;}
+  .icon-kpi-card .icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:17px;background:#eef4fb;flex-shrink:0;}
+  .icon-kpi-card .kpi-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;}
+  .icon-kpi-card .kpi-value{font-size:20px;font-weight:900;color:var(--navy);line-height:1.05;margin-top:2px;}
+  .icon-kpi-card .kpi-delta{font-size:9px;color:#91a0ae;margin-top:2px;}
+  .delta-bad{color:var(--c-oos)!important;}
+  .delta-good{color:var(--c-optimal)!important;}
 
-  /* ── CLASSIFICATION RIBBON ── 76px target */
-  .sparkline-grid{
-    display:grid;grid-template-columns:repeat(7,1fr);
-    gap:7px;
-  }
-  .spark-card{
-    border:1px solid var(--border);border-radius:6px;
-    padding:7px 9px;
-  }
-  .spark-card .spark-label{
-    font-size:9px;font-weight:700;color:var(--text-600);
-    text-transform:uppercase;letter-spacing:.3px;line-height:1.1;
-  }
-  .spark-card .spark-value{
-    font-size:15px;font-weight:700;color:var(--navy-900);
-    margin:2px 0 1px;line-height:1.1;
-  }
-  .spark-card .spark-pct{font-size:9px;color:var(--text-400);margin-bottom:3px;}
-  .spark-canvas-wrap{position:relative;height:30px;width:100%;}
-  .spark-canvas-wrap canvas{position:absolute;top:0;left:0;width:100%!important;height:100%!important;}
+  /* IMPACT BANNER */
+  .impact-banner{background:linear-gradient(135deg,var(--navy),#092849);border-radius:14px;padding:13px 16px;margin-bottom:8px;color:#fff;display:grid;grid-template-columns:1.65fr repeat(4,1fr);gap:14px;align-items:center;box-shadow:0 10px 24px rgba(6,26,46,.18);}
+  .impact-banner-eyebrow{font-size:9px;letter-spacing:.55px;color:#92b0ca;text-transform:uppercase;font-weight:800;}
+  .impact-banner-title{font-size:14px;font-weight:900;margin-top:3px;line-height:1.35;}
+  .impact-banner-note{font-size:10px;color:#b7cada;margin-top:3px;}
+  .impact-metric{border-left:1px solid rgba(255,255,255,.14);padding-left:13px;}
+  .impact-metric .num{font-size:23px;color:var(--orange);font-weight:900;line-height:1;}
+  .impact-metric .lbl{font-size:9.5px;color:#d6e3ee;margin-top:4px;font-weight:700;}
 
-  /* ── PANELS ── compact for Overview, normal for detail pages */
-  .panel{
-    background:var(--card-bg);border:1px solid var(--border);
-    border-radius:7px;padding:10px 12px;margin-bottom:8px;
-  }
-  .panel h2{
-    font-size:12px;margin:0 0 8px;color:var(--navy-900);
-    font-weight:700;display:flex;align-items:center;justify-content:space-between;
-    line-height:1.2;
-  }
-  .panel h2 .tag{font-size:9.5px;font-weight:600;color:var(--text-400);}
+  /* CLASSIFICATION CARDS — left border style */
+  .sparkline-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
+  .spark-card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--grey);border-radius:12px;padding:9px 11px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:104px;}
+  .spark-card.c-optimal{border-left-color:var(--c-optimal);}
+  .spark-card.c-overstock{border-left-color:var(--c-overstock);}
+  .spark-card.c-understock{border-left-color:var(--c-understock);}
+  .spark-card.c-oos{border-left-color:var(--c-oos);}
+  .spark-card.c-idle{border-left-color:var(--navy);}
+  .spark-card.c-negative{border-left-color:var(--c-negative);}
+  .spark-label{font-size:8.7px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.35px;}
+  .spark-value{font-size:20px;font-weight:900;color:var(--navy);margin:3px 0 2px;line-height:1.1;}
+  .spark-pct{font-size:9px;color:#7d8fa2;font-weight:700;}
+  .spark-delta{font-size:9px;margin-top:2px;}
+  .spark-footer{margin-top:6px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#62778b;border-top:1px solid var(--line);padding-top:5px;}
+  .spark-badge{padding:3px 7px;border-radius:999px;font-weight:900;font-size:8.5px;}
+  .spark-badge.bad{background:#fdeeee;color:var(--c-oos);}
+  .spark-badge.warn{background:#fff6df;color:#9a6f00;}
+  .spark-badge.ok{background:#e8f7ef;color:var(--c-optimal);}
+  .spark-canvas-wrap{height:0;overflow:hidden;} /* hide sparklines — replaced by status card style */
 
-  /* detail pages can override with this class */
-  .panel.detail{padding:14px 16px;margin-bottom:12px;}
-  .panel.detail h2{font-size:13.5px;margin:0 0 12px;}
+  /* PANELS */
+  .panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);}
+  .panel h2{font-size:12px;margin:0 0 9px;color:var(--navy);font-weight:900;display:flex;justify-content:space-between;align-items:center;padding-bottom:7px;border-bottom:1px solid #edf1f5;}
+  .panel h2 .tag{font-size:9px;color:#8a9aab;font-weight:700;}
 
-  /* ── GRIDS ── */
-  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  /* GRIDS */
+  .grid-2{display:grid;grid-template-columns:1.18fr 1fr;gap:8px;margin-bottom:8px;}
+  .grid-2.bottom{grid-template-columns:1.42fr 1fr;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
 
-  /* ── TABLES ── */
-  table{width:100%;border-collapse:collapse;font-size:11.5px;}
-  thead th{
-    background:var(--navy-800);color:#fff;text-align:left;
-    padding:5px 8px;font-weight:600;font-size:10.5px;
-    text-transform:uppercase;letter-spacing:.3px;position:sticky;top:0;
-  }
-  tbody td{padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text-900);}
-  tbody tr:hover{background:#f3f7fb;}
-  .table-scroll{max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:5px;}
+  /* BAR ROWS — pill style */
+  .bar-row{display:grid;grid-template-columns:120px 1fr 52px;gap:7px;align-items:center;margin:5px 0;}
+  .bar-label{font-size:9.5px;color:#24394d;font-weight:800;text-align:right;white-space:nowrap;}
+  .bar-track{height:16px;background:#d9e1e9;border-radius:999px;overflow:hidden;display:flex;}
+  .bar-seg{height:100%;border-radius:999px;}
+  .bar-seg.actioned{background:var(--navy3);}
+  .bar-seg.pending{background:#d9e1e9;flex:1;}
+  .bar-total{font-size:9px;color:#6e8091;font-weight:700;text-align:right;}
+  .bar-seg-label{display:none;}
 
-  /* detail page tables can be normal size */
-  .detail table{font-size:12.5px;}
-  .detail thead th{padding:8px 10px;font-size:11.5px;}
-  .detail tbody td{padding:7px 10px;}
-  .detail .table-scroll{max-height:520px;}
+  /* TABLES */
+  table{width:100%;border-collapse:collapse;font-size:9.6px;}
+  thead th{background:var(--navy2);color:#fff;text-align:left;padding:6px 7px;text-transform:uppercase;letter-spacing:.25px;font-size:8.5px;font-weight:700;}
+  tbody td{padding:5px 7px;border-bottom:1px solid #edf1f5;font-weight:600;color:#22384b;white-space:nowrap;}
+  tbody td.wrap{white-space:normal;}
+  tbody tr:hover{background:#f5f8fc;}
+  tbody tr:last-child td{background:#f3f6fa;font-weight:900;}
+  .table-scroll{overflow:auto;border-radius:8px;border:1px solid var(--line);}
+  .rate-hi{padding:3px 7px;border-radius:999px;font-size:8.5px;font-weight:900;background:#fdeeee;color:var(--c-oos);display:inline-block;}
+  .rate-md{padding:3px 7px;border-radius:999px;font-size:8.5px;font-weight:900;background:#fff6df;color:#9a6f00;display:inline-block;}
+  .rate-ok{padding:3px 7px;border-radius:999px;font-size:8.5px;font-weight:900;background:#e8f7ef;color:var(--c-optimal);display:inline-block;}
 
-  /* ── STACKED BARS ── */
-  .bar-row{display:grid;grid-template-columns:100px 1fr;gap:7px;align-items:center;margin-bottom:6px;}
-  .bar-row .bar-label{
-    font-size:10.5px;font-weight:600;color:var(--text-900);
-    text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .bar-track{height:16px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex;}
-  .bar-seg{height:100%;display:flex;align-items:center;}
-  .bar-seg.actioned{background:var(--navy-700);}
-  .bar-seg.pending{background:#cdd6e0;}
-  .bar-seg .bar-seg-label{font-size:9px;color:#fff;padding-left:4px;font-weight:600;white-space:nowrap;}
-  .bar-row .bar-total{font-size:10px;color:var(--text-600);margin-left:5px;white-space:nowrap;}
+  /* TOP 10 INLINE BARS — name above bar */
+  .top10-inline{margin-bottom:6px;}
+  .top10-article{font-size:9.5px;font-weight:800;color:#25394d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .top10-bar-row{display:grid;grid-template-columns:1fr 36px;gap:8px;align-items:center;}
+  .top10-track{height:12px;background:#e5ebf1;border-radius:999px;overflow:hidden;}
+  .top10-fill{height:100%;background:var(--navy3);border-radius:999px;}
+  .top10-num{font-size:9px;color:var(--muted);text-align:right;font-weight:800;}
 
-  /* ── MISC ── */
-  canvas{max-width:100%;}
-  .legend-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:10.5px;color:var(--text-600);}
-  .legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:middle;}
+  /* DONUT — CSS conic-gradient */
+  .donut-wrap{display:flex;align-items:center;gap:16px;}
+  .css-donut{width:170px;height:170px;border-radius:50%;position:relative;flex:0 0 auto;}
+  .css-donut::after{content:"";position:absolute;inset:36px;background:#fff;border-radius:50%;}
+  .donut-legend{flex:1;}
+  .donut-legend-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #edf1f5;padding:5px 0;font-size:9.4px;font-weight:800;color:#22384b;}
+  .donut-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;}
+
+  /* FOCUS BAR */
+  .focus-bar{background:#e8f0fb;border:1px solid #b5d4f4;border-radius:9px;padding:9px 14px;margin-top:8px;display:flex;align-items:center;gap:10px;font-size:10.5px;color:var(--navy);font-weight:600;}
+  .focus-bar b{font-weight:900;}
+
+  /* MISC */
+  .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;}
+  .pager{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--muted);}
+  .pager button{background:var(--navy);color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:inherit;}
+  .pager button:disabled{opacity:.4;cursor:default;}
   .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
   .filters .grow{flex:1;min-width:120px;}
-  .badge{display:inline-block;padding:2px 6px;border-radius:20px;font-size:10px;font-weight:600;color:#fff;}
-  .pager{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11.5px;color:var(--text-600);}
-  .pager button{background:var(--navy-800);color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11.5px;}
-  .pager button:disabled{opacity:.4;cursor:default;}
-  .notice{background:#fff7e6;border:1px solid #f0d28a;color:#7a5a05;font-size:11px;padding:7px 12px;border-radius:6px;margin-bottom:8px;}
-  a.img-link{color:var(--blue-500);text-decoration:none;font-weight:600;}
-  a.img-link:hover{text-decoration:underline;}
-  .muted{color:var(--text-400);}
-  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-  .kpi-card{background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:9px 11px;border-top:3px solid var(--orange-500);}
-  .kpi-card .label{font-size:9.5px;color:var(--text-600);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
-  .kpi-card .value{font-size:17px;font-weight:700;margin-top:3px;color:var(--navy-900);}
-  .kpi-card.c-optimal{border-top-color:var(--c-optimal);}
-  .kpi-card.c-overstock{border-top-color:var(--c-overstock);}
-  .kpi-card.c-understock{border-top-color:var(--c-understock);}
-  .kpi-card.c-oos{border-top-color:var(--c-oos);}
+  a.img-link{color:#2c6fb0;text-decoration:none;font-weight:600;}
+  .muted{color:var(--muted);}
+  .notice{background:#fff7e6;border:1px solid #f0d28a;color:#7a5a05;font-size:11px;padding:7px 12px;border-radius:7px;margin-bottom:8px;}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
-  .feedback-item{border:1px solid var(--border);border-radius:6px;padding:9px 11px;margin-bottom:7px;}
-  .feedback-item .fb-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:10.5px;color:var(--text-600);font-weight:600;}
-  .feedback-item .fb-store{color:var(--navy-900);font-weight:700;font-size:11.5px;}
-  .feedback-item .fb-body{font-size:11.5px;color:var(--text-900);line-height:1.4;}
-  .feedback-item .fb-body .fb-label{font-weight:600;color:var(--text-600);font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
-
-
-
-/* === StockFix premium executive redesign patch === */
-:root{
-  --sf-navy:#083b6d;
-  --sf-navy-dark:#052748;
-  --sf-blue:#0b4a82;
-  --sf-orange:#ff6c0e;
-  --sf-bg:#eef4f8;
-  --sf-border:#d9e3ee;
-  --sf-card-shadow:0 1px 2px rgba(13,42,70,.06),0 8px 24px rgba(13,42,70,.05);
-}
-body{background:var(--sf-bg);font-size:12px;color:#0b2440;}
-header{
-  min-height:58px!important;padding:9px 18px!important;
-  background:linear-gradient(135deg,#07315b 0%,#082c50 55%,#061d35 100%)!important;
-  border-bottom:3px solid var(--sf-orange)!important;box-shadow:0 2px 8px rgba(4,23,43,.18);
-}
-header>div:first-child{display:flex;align-items:center;gap:12px;}
-header>div:first-child:before{content:'SF';display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--sf-orange);color:#fff;font-weight:900;font-size:14px;box-shadow:0 6px 16px rgba(255,108,14,.25);}
-header h1{font-size:16px!important;font-weight:800!important;line-height:1.05!important;}
-header .sub{font-size:11px!important;color:#b9d0e4!important;}
-#authStatus:before{content:'● ';color:#16c267;font-size:15px;vertical-align:-1px;}
-.tab-bar{height:38px;background:#06243f!important;padding:0 20px!important;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.tab-btn{font-size:12px!important;font-weight:700!important;padding:12px 16px 10px!important;color:#89a6c0!important;}
-.tab-btn.active{color:#fff!important;border-bottom-color:var(--sf-orange)!important;}
-.filter-bar{top:38px!important;background:#f7fafd!important;padding:7px 12px!important;gap:8px!important;border-bottom:1px solid #d6e1eb!important;box-shadow:0 1px 0 rgba(255,255,255,.7) inset;}
-.filter-bar label{display:none!important;}
-.filter-bar select,.filter-bar input[type="text"]{height:30px!important;border-radius:6px!important;border:1px solid #cfdbe7!important;background:#fff!important;font-size:12px!important;box-shadow:0 1px 2px rgba(10,41,70,.04) inset;}
-main{padding:10px 12px 28px!important;max-width:none!important;}
-.icon-kpi-row{gap:8px!important;margin-bottom:8px!important;}
-.icon-kpi-card{min-height:75px!important;padding:10px 12px!important;border-radius:8px!important;border:1px solid var(--sf-border)!important;box-shadow:var(--sf-card-shadow)!important;position:relative;overflow:hidden;}
-.icon-kpi-card:before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--blue-500);}
-.icon-kpi-card:nth-child(2):before{background:var(--c-optimal)}
-.icon-kpi-card:nth-child(3):before{background:#f0a000}
-.icon-kpi-card:nth-child(4):before{background:#9b2fae}
-.icon-kpi-card:nth-child(5):before{background:#2c8fae}
-.icon-kpi-card:nth-child(6):before{background:var(--sf-orange)}
-.icon-kpi-card .icon-circle{width:34px!important;height:34px!important;border-radius:50%!important;}
-.icon-kpi-card .label{font-size:10px!important;color:#496681!important;font-weight:800!important;}
-.icon-kpi-card .value{font-size:24px!important;font-weight:900!important;letter-spacing:-.4px;color:#061e3c!important;}
-.icon-kpi-card .delta{font-size:10px!important;margin-top:3px!important;}
-.sf-impact-bar{display:grid;grid-template-columns:minmax(430px,1fr) repeat(4,150px);align-items:stretch;margin:8px 0 8px;border-radius:8px;overflow:hidden;background:linear-gradient(90deg,#08477c,#052f55);box-shadow:var(--sf-card-shadow);}
-.sf-impact-copy{padding:13px 16px;color:#fff;display:flex;flex-direction:column;justify-content:center;}
-.sf-impact-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;font-weight:900;color:#83b3db;margin-bottom:5px;}
-.sf-impact-title{font-size:17px;font-weight:900;line-height:1.25;}
-.sf-impact-metric{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:70px;border-left:1px solid rgba(255,255,255,.14);color:#fff;}
-.sf-impact-metric .sf-icon{font-size:24px;color:#fff;opacity:.96;line-height:1;margin-bottom:3px;}
-.sf-impact-metric .sf-num{font-size:27px;font-weight:900;line-height:1;color:var(--sf-orange);letter-spacing:.2px;}
-.sf-impact-metric .sf-label{font-size:9px;letter-spacing:.25px;text-transform:uppercase;color:#99bddb;margin-top:4px;font-weight:800;}
-#taskBreakdownGrid,.sparkline-grid,.classification-kpi-grid{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:8px!important;margin-bottom:8px!important;}
-.spark-card{min-height:112px!important;padding:12px 14px 10px!important;background:#fff!important;border:1px solid var(--sf-border)!important;border-radius:8px!important;box-shadow:var(--sf-card-shadow)!important;position:relative;overflow:hidden;border-top:3px solid #7c8aa0!important;}
-.spark-card:before{content:'';display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;margin-right:8px;vertical-align:-4px;background:#eaf0f5;color:#fff;font-size:10px;font-weight:900;}
-.spark-card .spark-label{display:inline!important;font-size:11px!important;color:#264762!important;letter-spacing:.25px!important;font-weight:900!important;}
-.spark-card .spark-value{font-size:22px!important;font-weight:900!important;color:#061e3c!important;margin:7px 0 2px!important;line-height:1!important;}
-.spark-card .spark-pct{font-size:11px!important;color:#557089!important;margin:0 0 2px!important;}
-.spark-card .spark-canvas-wrap,.spark-card canvas{display:none!important;height:0!important;margin:0!important;}
-.spark-card .sf-card-footer{border-top:1px solid #d9e3ee;margin-top:9px;padding-top:7px;display:flex;gap:12px;font-size:11px;color:#0b2440;font-weight:800;}
-.spark-card .sf-card-footer span+span{border-left:1px solid #ccd8e5;padding-left:12px;}
-.spark-card[data-sf-class="optimal"]{border-top-color:var(--c-optimal)!important}.spark-card[data-sf-class="optimal"]:before{content:'✓';background:var(--c-optimal)}
-.spark-card[data-sf-class="overstock"]{border-top-color:var(--c-overstock)!important}.spark-card[data-sf-class="overstock"]:before{content:'!';background:var(--c-overstock)}
-.spark-card[data-sf-class="understock"]{border-top-color:var(--c-understock)!important}.spark-card[data-sf-class="understock"]:before{content:'↓';background:var(--c-understock)}
-.spark-card[data-sf-class="outofstock"]{border-top-color:var(--c-oos)!important}.spark-card[data-sf-class="outofstock"]:before{content:'!';background:var(--c-oos)}
-.spark-card[data-sf-class="idle"]{border-top-color:var(--c-idle)!important;background:linear-gradient(180deg,#fff,#fbfcfe)!important}.spark-card[data-sf-class="idle"]:before{content:'↗';background:var(--c-idle)}
-.spark-card[data-sf-class="negative"]{border-top-color:var(--c-negative)!important}.spark-card[data-sf-class="negative"]:before{content:'−';background:var(--c-negative)}
-.panel{border:1px solid var(--sf-border)!important;border-radius:8px!important;box-shadow:var(--sf-card-shadow)!important;padding:12px 14px!important;margin-bottom:8px!important;background:#fff!important;}
-.panel h2{font-size:13px!important;font-weight:900!important;color:#072b4d!important;margin:0 0 8px!important;}
-.panel h2 .tag{font-size:10px!important;color:#6c849a!important;text-transform:none!important;font-weight:700!important;}
-.grid-2{gap:8px!important;align-items:start!important;}
-#tab-overview>.grid-2:nth-of-type(1) .panel{min-height:0!important;height:auto!important;}
-.table-scroll{max-height:none!important;border:0!important;border-radius:0!important;overflow:visible!important;}
-table{font-size:11.5px!important;border-collapse:separate!important;border-spacing:0!important;}
-thead th{background:#073f70!important;color:#fff!important;padding:6px 9px!important;font-size:10px!important;font-weight:900!important;text-transform:none!important;position:static!important;}
-thead th:first-child{border-radius:3px 0 0 3px} thead th:last-child{border-radius:0 3px 3px 0}
-tbody td{padding:6px 9px!important;border-bottom:1px solid #e5edf4!important;color:#0b2440!important;}
-tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;border-bottom:0!important;}
-.bar-row{grid-template-columns:90px 1fr 54px!important;gap:8px!important;margin-bottom:7px!important;align-items:center!important;}
-.bar-row .bar-label{font-size:11px!important;font-weight:800!important;color:#0b2440!important;}
-.bar-track{height:14px!important;background:#dce4ee!important;border-radius:4px!important;}
-.bar-seg.actioned{background:#073f70!important;min-width:2px;}
-.bar-seg.pending{background:#dce4ee!important;}
-.bar-seg .bar-seg-label{font-size:10px!important;font-weight:800!important;color:#0b2440!important;background:rgba(255,255,255,.78);padding:1px 4px;border-radius:3px;margin-left:5px;}
-.bar-row .bar-total{font-size:11px!important;font-weight:800!important;color:#0b2440!important;text-align:right!important;}
-.legend-row{margin-top:8px!important;font-size:11px!important;font-weight:700!important;}
-#top10InlineBars .bar-row{grid-template-columns:1fr 140px 36px!important;margin-bottom:5px!important;}
-#top10InlineBars .bar-label{text-align:left!important;font-weight:700!important;}
-#top10InlineBars .bar-track{height:12px!important;background:#edf2f7!important;}
-#actionTakenChart{width:165px!important;height:165px!important;}
-.sf-action-wrap{display:flex!important;gap:24px!important;align-items:center!important;min-height:180px!important;}
-.sf-insight-strip{display:flex;align-items:center;gap:9px;margin-top:8px;padding:9px 12px;border:1px solid #bfdbf4;background:#f3f9ff;border-radius:7px;color:#07508d;font-size:12px;font-weight:800;box-shadow:var(--sf-card-shadow);}
-.sf-insight-strip:before{content:'i';display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#1269b0;color:#fff;font-weight:900;font-size:12px;}
-@media(max-width:1366px){
-  header{min-height:54px!important}.tab-bar{height:35px}.tab-btn{padding:11px 14px 9px!important}.filter-bar{top:35px!important;padding:6px 10px!important}
-  main{padding:8px 10px 24px!important}.icon-kpi-card{min-height:70px!important;padding:9px 10px!important}.icon-kpi-card .value{font-size:22px!important}
-  .sf-impact-bar{grid-template-columns:minmax(390px,1fr) repeat(4,128px)!important}.sf-impact-title{font-size:15px}.sf-impact-metric .sf-num{font-size:24px}.sf-impact-metric{min-height:64px}
-  .spark-card{min-height:103px!important;padding:10px 11px 9px!important}.spark-card .spark-value{font-size:20px!important}.spark-card .sf-card-footer{font-size:10px;margin-top:7px;padding-top:6px}
-  .panel{padding:10px 12px!important}.panel h2{font-size:12px!important;margin-bottom:7px!important}tbody td{padding:5px 8px!important}
-}
-@media(max-width:1100px){.icon-kpi-row,#taskBreakdownGrid,.sparkline-grid{grid-template-columns:repeat(3,1fr)!important}.sf-impact-bar{grid-template-columns:1fr 1fr!important}.grid-2{grid-template-columns:1fr!important}}
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
+  .kpi-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-top:3px solid var(--orange);}
+  .kpi-card .label{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+  .kpi-card .value{font-size:18px;font-weight:700;margin-top:3px;color:var(--navy);}
+  .feedback-item{border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:7px;}
+  .feedback-item .fb-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:10px;color:var(--muted);font-weight:600;}
+  .feedback-item .fb-store{color:var(--navy);font-weight:800;font-size:11px;}
+  .feedback-item .fb-body{font-size:11px;color:var(--text);line-height:1.4;}
+  .feedback-item .fb-label{font-weight:700;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
 
 </style>
 </head>
@@ -368,35 +214,29 @@ tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;bo
 
     <div class="tab-panel active" id="tab-overview">
 
-    <!-- ABOVE FOLD: Executive KPI row -->
+    <!-- ABOVE FOLD: 4. Executive KPI row -->
     <div class="icon-kpi-row" id="iconKpiRow"></div>
 
-    <!-- ABOVE FOLD: Weekly impact story -->
-    <div class="sf-impact-bar" id="weeklyImpactBar">
-      <div class="sf-impact-copy">
-        <div class="sf-impact-eyebrow">Weekly Impact Report</div>
-        <div class="sf-impact-title" id="weeklyImpactTitle">Completing field tasks this week delivered measurable stock health improvements across stores</div>
-      </div>
-      <div class="sf-impact-metric"><div class="sf-icon">✦</div><div class="sf-num" id="impactIdleCleared">5,112</div><div class="sf-label">Idle stock cleared</div></div>
-      <div class="sf-impact-metric"><div class="sf-icon">↓</div><div class="sf-num" id="impactUnderResolved">1,558</div><div class="sf-label">Understocks resolved</div></div>
-      <div class="sf-impact-metric"><div class="sf-icon">↑</div><div class="sf-num" id="impactOverFixed">346</div><div class="sf-label">Overstocks fixed</div></div>
-      <div class="sf-impact-metric"><div class="sf-icon">↻</div><div class="sf-num" id="impactOosReplenished">239</div><div class="sf-label">OOS replenished</div></div>
+    <!-- ABOVE FOLD: Impact banner -->
+    <div class="impact-banner" id="impactBanner"></div>
+
+    <!-- ABOVE FOLD: 5. Classification ribbon -->
+    <div class="panel" style="padding:9px 12px 8px;">
+      <h2 style="margin-bottom:8px;">Task breakdown <span class="tag">all lines · selected week · 35-week sparkline</span></h2>
+      <div class="sparkline-grid" id="taskBreakdownGrid"></div>
     </div>
 
-    <!-- ABOVE FOLD: Compact classification KPI cards - no sparklines -->
-    <div class="classification-kpi-grid" id="taskBreakdownGrid"></div>
-
     <!-- ABOVE FOLD: 6. Actioned vs Pending + Classification Summary -->
-    <div class="grid-2">
-      <div class="panel">
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <div class="panel" style="width:54%;flex-shrink:0;">
         <h2>Actioned vs Pending by classification <span class="tag">selected week</span></h2>
         <div id="actionedPendingBars"></div>
       </div>
-      <div class="panel">
+      <div class="panel" style="flex:1;min-width:0;">
         <h2>Classification summary <span class="tag">selected week</span></h2>
         <div class="table-scroll" style="max-height:230px;">
           <table>
-            <thead><tr><th>Classification</th><th>Total Tasks</th><th>Actioned</th><th>Pending</th><th>Action Rate %</th><th>Top Action Taken</th></tr></thead>
+            <thead><tr><th>Classification</th><th>Total Tasks</th><th>Actioned</th><th>Pending</th><th>Rate %</th><th>Top Reason Code</th></tr></thead>
             <tbody id="classSummaryBody"></tbody>
           </table>
         </div>
@@ -406,25 +246,23 @@ tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;bo
     <!-- BELOW FOLD: Top 10 + Action Taken -->
     <div class="grid-2" style="grid-template-columns:1.4fr 1fr;">
       <div class="panel">
-        <h2>Top 10 articles actioned this week <span class="tag" id="top10ActionedTag"></span></h2>
+        <h2>Top 10 article descriptions actioned <span class="tag" id="top10ActionedTag"></span></h2>
         <table style="display:none;"><tbody id="top10ActionedBody"></tbody></table>
         <div id="top10InlineBars"></div>
       </div>
       <div class="panel">
-        <h2>Action taken by reps <span class="tag">completed rows</span></h2>
-        <div class="sf-action-wrap" style="display:flex;gap:16px;align-items:center;margin-top:6px;">
-          <div style="flex-shrink:0;"><canvas id="actionTakenChart" width="200" height="200"></canvas></div>
-          <div style="flex:1;">
-            <table>
-              <thead><tr><th>Action taken</th><th>Count</th><th>%</th></tr></thead>
-              <tbody id="actionTakenTableBody"></tbody>
-            </table>
-          </div>
-        </div>
+        <h2>Root cause of completed tasks <span class="tag">reason code · completed rows only</span></h2>
+        <canvas id="actionTakenChart" style="display:none;"></canvas>
+        <table style="display:none;"><tbody id="actionTakenTableBody"></tbody></table>
+        <div id="donutRootCause"></div>
+        <div id="top5SkuReason" style="margin-top:10px;padding-top:10px;border-top:1px solid #edf1f5;"></div>
+        <div id="top5SkuReason" style="margin-top:10px;padding-top:10px;border-top:1px solid #edf1f5;"></div>
+
       </div>
     </div>
 
-    <div class="sf-insight-strip">Focus this week: No Sales (Idle) represents the biggest opportunity. Keep fixing idle stock because every action drives better availability and shelf health.</div>
+    <!-- Focus bar -->
+    <div class="focus-bar" id="focusBar"></div>
 
     <!-- Hidden stubs for functions that still reference removed elements -->
     <div style="display:none;">
@@ -436,25 +274,54 @@ tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;bo
   </div>
 
   <div class="tab-panel" id="tab-repmanager">
-    <div class="kpi-row" id="repManagerKpiRow" style="grid-template-columns:repeat(4,1fr);"></div>
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Rep leaderboard <span class="tag" id="repLeaderboardTag"></span></h2>
-        <div class="table-scroll" style="max-height:480px;">
+    <!-- REP & MANAGER PERFORMANCE TAB -->
+    <div class="icon-kpi-row" id="rmKpiRow" style="grid-template-columns:repeat(6,1fr);"></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <!-- Manager leaderboard -->
+      <div class="panel" style="flex:1.2;min-width:0;">
+        <h2>Manager leaderboard <span class="tag" id="managerLeaderboardTag">selected week</span></h2>
+        <div class="table-scroll" style="max-height:420px;">
           <table>
-            <thead><tr><th>Rep</th><th>Total Lines</th><th>Pending</th><th>Escalated</th><th>% Actioned</th></tr></thead>
-            <tbody id="repLeaderboardBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Manager leaderboard <span class="tag" id="managerLeaderboardTag"></span></h2>
-        <div class="table-scroll" style="max-height:480px;">
-          <table>
-            <thead><tr><th>Manager</th><th>Total Lines</th><th>Pending</th><th>Escalated</th><th>% Actioned</th></tr></thead>
+            <thead><tr><th>Manager</th><th>Region</th><th>% Stores Actioned</th><th>Action Items</th><th>% Articles Actioned</th></tr></thead>
             <tbody id="managerLeaderboardBody"></tbody>
           </table>
         </div>
+      </div>
+      <!-- Region bar charts -->
+      <div class="panel" style="flex:1;min-width:0;">
+        <h2>Items &amp; Stores Actioned by Region <span class="tag">selected week</span></h2>
+        <canvas id="regionActionsChart" height="220"></canvas>
+        <div id="regionActionsLegend" style="display:flex;gap:12px;margin-top:6px;font-size:9.5px;color:var(--muted);"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <!-- Top 5 managers -->
+      <div class="panel" style="flex:1;min-width:0;">
+        <h2>Top 5 Managers by Items Actioned <span class="tag">selected week</span></h2>
+        <canvas id="top5ManagersChart" height="180"></canvas>
+      </div>
+      <!-- Top 5 reps -->
+      <div class="panel" style="flex:1;min-width:0;">
+        <h2>Top 5 Reps by Items Actioned <span class="tag">selected week</span></h2>
+        <canvas id="top5RepsChart" height="180"></canvas>
+      </div>
+      <!-- Feedback by client -->
+      <div class="panel" style="flex:1.2;min-width:0;">
+        <h2>Reason Code by Client <span class="tag">completed rows only</span></h2>
+        <canvas id="feedbackByClientChart" height="180"></canvas>
+      </div>
+    </div>
+
+    <!-- Region × Week RAG table -->
+    <div class="panel">
+      <h2>Region Performance by Week <span class="tag">% articles actioned · RAG</span></h2>
+      <div class="table-scroll">
+        <table id="regionWeekTable">
+          <thead id="regionWeekHead"></thead>
+          <tbody id="regionWeekBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -536,6 +403,7 @@ tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;bo
     </div>
   </div>
 
+<script type="application/json" id="data-region-week">[{"region": "EAST LONDON", "week": "2025-10-01", "total": 12, "actioned": 11}, {"region": "EAST LONDON", "week": "2025-10-30", "total": 4452, "actioned": 0}, {"region": "EAST LONDON", "week": "2025-11-07", "total": 3966, "actioned": 3}, {"region": "EAST LONDON", "week": "2025-11-14", "total": 2706, "actioned": 3}, {"region": "EAST LONDON", "week": "2025-11-27", "total": 1, "actioned": 1}, {"region": "EAST LONDON", "week": "2025-12-05", "total": 1094, "actioned": 28}, {"region": "EAST LONDON", "week": "2025-12-12", "total": 1727, "actioned": 1}, {"region": "EAST LONDON", "week": "2025-12-17", "total": 2476, "actioned": 1}, {"region": "EAST LONDON", "week": "2026-01-14", "total": 1468, "actioned": 24}, {"region": "EAST LONDON", "week": "2026-01-21", "total": 7942, "actioned": 0}, {"region": "EAST LONDON", "week": "2026-01-28", "total": 3586, "actioned": 241}, {"region": "EAST LONDON", "week": "2026-02-04", "total": 7582, "actioned": 458}, {"region": "EAST LONDON", "week": "2026-02-11", "total": 8430, "actioned": 476}, {"region": "EAST LONDON", "week": "2026-02-18", "total": 7256, "actioned": 519}, {"region": "EAST LONDON", "week": "2026-02-25", "total": 7545, "actioned": 395}, {"region": "EAST LONDON", "week": "2026-03-04", "total": 7435, "actioned": 344}, {"region": "EAST LONDON", "week": "2026-03-11", "total": 7503, "actioned": 183}, {"region": "EAST LONDON", "week": "2026-03-18", "total": 6031, "actioned": 303}, {"region": "EAST LONDON", "week": "2026-03-25", "total": 7865, "actioned": 308}, {"region": "EAST LONDON", "week": "2026-04-01", "total": 5198, "actioned": 125}, {"region": "EAST LONDON", "week": "2026-04-08", "total": 5539, "actioned": 373}, {"region": "EAST LONDON", "week": "2026-04-15", "total": 7036, "actioned": 607}, {"region": "EAST LONDON", "week": "2026-04-29", "total": 3182, "actioned": 503}, {"region": "EAST LONDON", "week": "2026-05-06", "total": 3614, "actioned": 676}, {"region": "EAST LONDON", "week": "2026-05-13", "total": 3880, "actioned": 670}, {"region": "EAST LONDON", "week": "2026-05-20", "total": 5707, "actioned": 850}, {"region": "EAST LONDON", "week": "2026-05-27", "total": 5575, "actioned": 1196}, {"region": "EAST LONDON", "week": "2026-06-03", "total": 5269, "actioned": 759}, {"region": "EAST LONDON", "week": "2026-06-10", "total": 5137, "actioned": 536}, {"region": "EAST LONDON", "week": "2026-06-17", "total": 5291, "actioned": 574}, {"region": "FREE STATE", "week": "2025-10-01", "total": 44, "actioned": 44}, {"region": "FREE STATE", "week": "2025-10-09", "total": 6, "actioned": 6}, {"region": "FREE STATE", "week": "2025-10-15", "total": 82, "actioned": 80}, {"region": "FREE STATE", "week": "2025-10-22", "total": 51, "actioned": 51}, {"region": "FREE STATE", "week": "2025-10-30", "total": 6116, "actioned": 44}, {"region": "FREE STATE", "week": "2025-11-07", "total": 5740, "actioned": 268}, {"region": "FREE STATE", "week": "2025-11-14", "total": 3603, "actioned": 389}, {"region": "FREE STATE", "week": "2025-11-20", "total": 46, "actioned": 46}, {"region": "FREE STATE", "week": "2025-11-27", "total": 171, "actioned": 171}, {"region": "FREE STATE", "week": "2025-12-05", "total": 2302, "actioned": 400}, {"region": "FREE STATE", "week": "2025-12-12", "total": 2029, "actioned": 248}, {"region": "FREE STATE", "week": "2025-12-17", "total": 2681, "actioned": 199}, {"region": "FREE STATE", "week": "2026-01-14", "total": 2360, "actioned": 310}, {"region": "FREE STATE", "week": "2026-01-21", "total": 7291, "actioned": 230}, {"region": "FREE STATE", "week": "2026-01-28", "total": 6034, "actioned": 982}, {"region": "FREE STATE", "week": "2026-02-04", "total": 13027, "actioned": 1469}, {"region": "FREE STATE", "week": "2026-02-11", "total": 12207, "actioned": 2805}, {"region": "FREE STATE", "week": "2026-02-18", "total": 12366, "actioned": 1824}, {"region": "FREE STATE", "week": "2026-02-25", "total": 13574, "actioned": 1704}, {"region": "FREE STATE", "week": "2026-03-04", "total": 12239, "actioned": 1916}, {"region": "FREE STATE", "week": "2026-03-11", "total": 12821, "actioned": 1241}, {"region": "FREE STATE", "week": "2026-03-18", "total": 10654, "actioned": 1057}, {"region": "FREE STATE", "week": "2026-03-25", "total": 12994, "actioned": 2005}, {"region": "FREE STATE", "week": "2026-04-01", "total": 9468, "actioned": 1142}, {"region": "FREE STATE", "week": "2026-04-08", "total": 10883, "actioned": 1570}, {"region": "FREE STATE", "week": "2026-04-15", "total": 11897, "actioned": 1872}, {"region": "FREE STATE", "week": "2026-04-29", "total": 5346, "actioned": 689}, {"region": "FREE STATE", "week": "2026-05-06", "total": 6139, "actioned": 1287}, {"region": "FREE STATE", "week": "2026-05-13", "total": 6655, "actioned": 1681}, {"region": "FREE STATE", "week": "2026-05-20", "total": 9357, "actioned": 1175}, {"region": "FREE STATE", "week": "2026-05-27", "total": 9760, "actioned": 1602}, {"region": "FREE STATE", "week": "2026-06-03", "total": 9171, "actioned": 1559}, {"region": "FREE STATE", "week": "2026-06-10", "total": 8689, "actioned": 1574}, {"region": "FREE STATE", "week": "2026-06-17", "total": 9527, "actioned": 1042}, {"region": "GAUTENG", "week": "2025-10-01", "total": 353, "actioned": 344}, {"region": "GAUTENG", "week": "2025-10-09", "total": 49, "actioned": 48}, {"region": "GAUTENG", "week": "2025-10-15", "total": 84, "actioned": 80}, {"region": "GAUTENG", "week": "2025-10-22", "total": 75, "actioned": 74}, {"region": "GAUTENG", "week": "2025-10-30", "total": 38477, "actioned": 107}, {"region": "GAUTENG", "week": "2025-11-07", "total": 35178, "actioned": 143}, {"region": "GAUTENG", "week": "2025-11-14", "total": 21935, "actioned": 114}, {"region": "GAUTENG", "week": "2025-11-20", "total": 34, "actioned": 34}, {"region": "GAUTENG", "week": "2025-11-27", "total": 173, "actioned": 173}, {"region": "GAUTENG", "week": "2025-12-05", "total": 14877, "actioned": 138}, {"region": "GAUTENG", "week": "2025-12-12", "total": 11488, "actioned": 143}, {"region": "GAUTENG", "week": "2025-12-17", "total": 16185, "actioned": 128}, {"region": "GAUTENG", "week": "2026-01-14", "total": 14641, "actioned": 225}, {"region": "GAUTENG", "week": "2026-01-21", "total": 13417, "actioned": 157}, {"region": "GAUTENG", "week": "2026-01-28", "total": 33879, "actioned": 1035}, {"region": "GAUTENG", "week": "2026-02-04", "total": 70052, "actioned": 3515}, {"region": "GAUTENG", "week": "2026-02-11", "total": 74408, "actioned": 6265}, {"region": "GAUTENG", "week": "2026-02-18", "total": 85870, "actioned": 4451}, {"region": "GAUTENG", "week": "2026-02-25", "total": 91629, "actioned": 3556}, {"region": "GAUTENG", "week": "2026-03-04", "total": 78044, "actioned": 5205}, {"region": "GAUTENG", "week": "2026-03-11", "total": 80213, "actioned": 4018}, {"region": "GAUTENG", "week": "2026-03-18", "total": 74134, "actioned": 3387}, {"region": "GAUTENG", "week": "2026-03-25", "total": 82557, "actioned": 3923}, {"region": "GAUTENG", "week": "2026-04-01", "total": 64545, "actioned": 1538}, {"region": "GAUTENG", "week": "2026-04-08", "total": 70162, "actioned": 2241}, {"region": "GAUTENG", "week": "2026-04-15", "total": 76347, "actioned": 3219}, {"region": "GAUTENG", "week": "2026-04-29", "total": 35022, "actioned": 792}, {"region": "GAUTENG", "week": "2026-05-06", "total": 44756, "actioned": 1349}, {"region": "GAUTENG", "week": "2026-05-13", "total": 46079, "actioned": 1516}, {"region": "GAUTENG", "week": "2026-05-20", "total": 64126, "actioned": 904}, {"region": "GAUTENG", "week": "2026-05-27", "total": 67178, "actioned": 1461}, {"region": "GAUTENG", "week": "2026-06-03", "total": 65342, "actioned": 1308}, {"region": "GAUTENG", "week": "2026-06-10", "total": 65529, "actioned": 2230}, {"region": "GAUTENG", "week": "2026-06-17", "total": 68918, "actioned": 1887}, {"region": "KWAZULU NATAL", "week": "2025-10-01", "total": 70, "actioned": 68}, {"region": "KWAZULU NATAL", "week": "2025-10-09", "total": 11, "actioned": 11}, {"region": "KWAZULU NATAL", "week": "2025-10-15", "total": 8, "actioned": 8}, {"region": "KWAZULU NATAL", "week": "2025-10-30", "total": 17584, "actioned": 91}, {"region": "KWAZULU NATAL", "week": "2025-11-07", "total": 15782, "actioned": 103}, {"region": "KWAZULU NATAL", "week": "2025-11-14", "total": 10014, "actioned": 187}, {"region": "KWAZULU NATAL", "week": "2025-11-20", "total": 61, "actioned": 61}, {"region": "KWAZULU NATAL", "week": "2025-11-27", "total": 36, "actioned": 36}, {"region": "KWAZULU NATAL", "week": "2025-12-05", "total": 5801, "actioned": 25}, {"region": "KWAZULU NATAL", "week": "2025-12-12", "total": 6259, "actioned": 71}, {"region": "KWAZULU NATAL", "week": "2025-12-17", "total": 8086, "actioned": 22}, {"region": "KWAZULU NATAL", "week": "2026-01-14", "total": 7415, "actioned": 85}, {"region": "KWAZULU NATAL", "week": "2026-01-21", "total": 2409, "actioned": 94}, {"region": "KWAZULU NATAL", "week": "2026-01-28", "total": 13695, "actioned": 1694}, {"region": "KWAZULU NATAL", "week": "2026-02-04", "total": 33565, "actioned": 2763}, {"region": "KWAZULU NATAL", "week": "2026-02-11", "total": 33457, "actioned": 2902}, {"region": "KWAZULU NATAL", "week": "2026-02-18", "total": 35603, "actioned": 2345}, {"region": "KWAZULU NATAL", "week": "2026-02-25", "total": 35728, "actioned": 1245}, {"region": "KWAZULU NATAL", "week": "2026-03-04", "total": 33461, "actioned": 1078}, {"region": "KWAZULU NATAL", "week": "2026-03-11", "total": 32943, "actioned": 1368}, {"region": "KWAZULU NATAL", "week": "2026-03-18", "total": 30398, "actioned": 1175}, {"region": "KWAZULU NATAL", "week": "2026-03-25", "total": 35014, "actioned": 1943}, {"region": "KWAZULU NATAL", "week": "2026-04-01", "total": 25821, "actioned": 794}, {"region": "KWAZULU NATAL", "week": "2026-04-08", "total": 28035, "actioned": 913}, {"region": "KWAZULU NATAL", "week": "2026-04-15", "total": 34230, "actioned": 1031}, {"region": "KWAZULU NATAL", "week": "2026-04-29", "total": 16329, "actioned": 422}, {"region": "KWAZULU NATAL", "week": "2026-05-06", "total": 19372, "actioned": 1096}, {"region": "KWAZULU NATAL", "week": "2026-05-13", "total": 19134, "actioned": 798}, {"region": "KWAZULU NATAL", "week": "2026-05-20", "total": 27028, "actioned": 554}, {"region": "KWAZULU NATAL", "week": "2026-05-27", "total": 29193, "actioned": 875}, {"region": "KWAZULU NATAL", "week": "2026-06-03", "total": 28383, "actioned": 861}, {"region": "KWAZULU NATAL", "week": "2026-06-10", "total": 27521, "actioned": 936}, {"region": "KWAZULU NATAL", "week": "2026-06-17", "total": 27758, "actioned": 765}, {"region": "LIMPOPO", "week": "2025-10-01", "total": 83, "actioned": 82}, {"region": "LIMPOPO", "week": "2025-10-09", "total": 24, "actioned": 24}, {"region": "LIMPOPO", "week": "2025-10-15", "total": 159, "actioned": 153}, {"region": "LIMPOPO", "week": "2025-10-22", "total": 119, "actioned": 119}, {"region": "LIMPOPO", "week": "2025-10-30", "total": 5594, "actioned": 8}, {"region": "LIMPOPO", "week": "2025-11-07", "total": 5359, "actioned": 248}, {"region": "LIMPOPO", "week": "2025-11-14", "total": 3978, "actioned": 299}, {"region": "LIMPOPO", "week": "2025-11-20", "total": 7, "actioned": 7}, {"region": "LIMPOPO", "week": "2025-11-27", "total": 35, "actioned": 35}, {"region": "LIMPOPO", "week": "2025-12-05", "total": 1958, "actioned": 229}, {"region": "LIMPOPO", "week": "2025-12-12", "total": 2277, "actioned": 192}, {"region": "LIMPOPO", "week": "2025-12-17", "total": 3198, "actioned": 181}, {"region": "LIMPOPO", "week": "2026-01-14", "total": 2191, "actioned": 83}, {"region": "LIMPOPO", "week": "2026-01-21", "total": 906, "actioned": 7}, {"region": "LIMPOPO", "week": "2026-01-28", "total": 5437, "actioned": 295}, {"region": "LIMPOPO", "week": "2026-02-04", "total": 10894, "actioned": 970}, {"region": "LIMPOPO", "week": "2026-02-11", "total": 10813, "actioned": 1507}, {"region": "LIMPOPO", "week": "2026-02-18", "total": 10159, "actioned": 770}, {"region": "LIMPOPO", "week": "2026-02-25", "total": 11933, "actioned": 580}, {"region": "LIMPOPO", "week": "2026-03-04", "total": 11289, "actioned": 604}, {"region": "LIMPOPO", "week": "2026-03-11", "total": 12012, "actioned": 523}, {"region": "LIMPOPO", "week": "2026-03-18", "total": 9094, "actioned": 217}, {"region": "LIMPOPO", "week": "2026-03-25", "total": 10620, "actioned": 184}, {"region": "LIMPOPO", "week": "2026-04-01", "total": 7782, "actioned": 36}, {"region": "LIMPOPO", "week": "2026-04-08", "total": 8120, "actioned": 83}, {"region": "LIMPOPO", "week": "2026-04-15", "total": 9992, "actioned": 74}, {"region": "LIMPOPO", "week": "2026-04-29", "total": 4759, "actioned": 52}, {"region": "LIMPOPO", "week": "2026-05-06", "total": 5383, "actioned": 134}, {"region": "LIMPOPO", "week": "2026-05-13", "total": 6187, "actioned": 278}, {"region": "LIMPOPO", "week": "2026-05-20", "total": 8876, "actioned": 165}, {"region": "LIMPOPO", "week": "2026-05-27", "total": 8702, "actioned": 165}, {"region": "LIMPOPO", "week": "2026-06-03", "total": 8206, "actioned": 276}, {"region": "LIMPOPO", "week": "2026-06-10", "total": 7923, "actioned": 85}, {"region": "LIMPOPO", "week": "2026-06-17", "total": 8389, "actioned": 275}, {"region": "MPUMALANGA", "week": "2025-10-01", "total": 88, "actioned": 88}, {"region": "MPUMALANGA", "week": "2025-10-09", "total": 25, "actioned": 25}, {"region": "MPUMALANGA", "week": "2025-10-15", "total": 274, "actioned": 272}, {"region": "MPUMALANGA", "week": "2025-10-22", "total": 93, "actioned": 92}, {"region": "MPUMALANGA", "week": "2025-10-30", "total": 8430, "actioned": 48}, {"region": "MPUMALANGA", "week": "2025-11-07", "total": 7863, "actioned": 195}, {"region": "MPUMALANGA", "week": "2025-11-14", "total": 6040, "actioned": 219}, {"region": "MPUMALANGA", "week": "2025-11-20", "total": 39, "actioned": 39}, {"region": "MPUMALANGA", "week": "2025-11-25", "total": 1, "actioned": 1}, {"region": "MPUMALANGA", "week": "2025-11-27", "total": 88, "actioned": 88}, {"region": "MPUMALANGA", "week": "2025-12-05", "total": 2584, "actioned": 63}, {"region": "MPUMALANGA", "week": "2025-12-12", "total": 3163, "actioned": 30}, {"region": "MPUMALANGA", "week": "2025-12-17", "total": 3983, "actioned": 70}, {"region": "MPUMALANGA", "week": "2026-01-14", "total": 3195, "actioned": 47}, {"region": "MPUMALANGA", "week": "2026-01-21", "total": 1149, "actioned": 68}, {"region": "MPUMALANGA", "week": "2026-01-28", "total": 7657, "actioned": 568}, {"region": "MPUMALANGA", "week": "2026-02-04", "total": 14702, "actioned": 1709}, {"region": "MPUMALANGA", "week": "2026-02-11", "total": 14524, "actioned": 1580}, {"region": "MPUMALANGA", "week": "2026-02-18", "total": 14289, "actioned": 710}, {"region": "MPUMALANGA", "week": "2026-02-25", "total": 15639, "actioned": 683}, {"region": "MPUMALANGA", "week": "2026-03-04", "total": 14291, "actioned": 438}, {"region": "MPUMALANGA", "week": "2026-03-11", "total": 15060, "actioned": 515}, {"region": "MPUMALANGA", "week": "2026-03-18", "total": 12669, "actioned": 224}, {"region": "MPUMALANGA", "week": "2026-03-25", "total": 14764, "actioned": 144}, {"region": "MPUMALANGA", "week": "2026-04-01", "total": 11132, "actioned": 76}, {"region": "MPUMALANGA", "week": "2026-04-08", "total": 12164, "actioned": 88}, {"region": "MPUMALANGA", "week": "2026-04-15", "total": 14241, "actioned": 166}, {"region": "MPUMALANGA", "week": "2026-04-29", "total": 6744, "actioned": 43}, {"region": "MPUMALANGA", "week": "2026-05-06", "total": 7488, "actioned": 191}, {"region": "MPUMALANGA", "week": "2026-05-13", "total": 8043, "actioned": 591}, {"region": "MPUMALANGA", "week": "2026-05-20", "total": 12100, "actioned": 289}, {"region": "MPUMALANGA", "week": "2026-05-27", "total": 12593, "actioned": 340}, {"region": "MPUMALANGA", "week": "2026-06-03", "total": 11787, "actioned": 288}, {"region": "MPUMALANGA", "week": "2026-06-10", "total": 11241, "actioned": 374}, {"region": "MPUMALANGA", "week": "2026-06-17", "total": 11944, "actioned": 414}, {"region": "NORTH WEST", "week": "2025-10-01", "total": 54, "actioned": 54}, {"region": "NORTH WEST", "week": "2025-10-09", "total": 3, "actioned": 3}, {"region": "NORTH WEST", "week": "2025-10-15", "total": 80, "actioned": 80}, {"region": "NORTH WEST", "week": "2025-10-22", "total": 29, "actioned": 29}, {"region": "NORTH WEST", "week": "2025-10-30", "total": 3833, "actioned": 56}, {"region": "NORTH WEST", "week": "2025-11-07", "total": 3632, "actioned": 174}, {"region": "NORTH WEST", "week": "2025-11-14", "total": 2417, "actioned": 276}, {"region": "NORTH WEST", "week": "2025-11-20", "total": 77, "actioned": 77}, {"region": "NORTH WEST", "week": "2025-11-27", "total": 13, "actioned": 13}, {"region": "NORTH WEST", "week": "2025-12-05", "total": 1378, "actioned": 72}, {"region": "NORTH WEST", "week": "2025-12-12", "total": 1295, "actioned": 96}, {"region": "NORTH WEST", "week": "2025-12-17", "total": 1597, "actioned": 60}, {"region": "NORTH WEST", "week": "2026-01-14", "total": 1398, "actioned": 32}, {"region": "NORTH WEST", "week": "2026-01-21", "total": 497, "actioned": 0}, {"region": "NORTH WEST", "week": "2026-01-28", "total": 3829, "actioned": 312}, {"region": "NORTH WEST", "week": "2026-02-04", "total": 9141, "actioned": 694}, {"region": "NORTH WEST", "week": "2026-02-11", "total": 8428, "actioned": 1139}, {"region": "NORTH WEST", "week": "2026-02-18", "total": 9050, "actioned": 539}, {"region": "NORTH WEST", "week": "2026-02-25", "total": 10042, "actioned": 583}, {"region": "NORTH WEST", "week": "2026-03-04", "total": 9087, "actioned": 380}, {"region": "NORTH WEST", "week": "2026-03-11", "total": 9572, "actioned": 118}, {"region": "NORTH WEST", "week": "2026-03-18", "total": 7924, "actioned": 166}, {"region": "NORTH WEST", "week": "2026-03-25", "total": 8937, "actioned": 125}, {"region": "NORTH WEST", "week": "2026-04-01", "total": 7252, "actioned": 52}, {"region": "NORTH WEST", "week": "2026-04-08", "total": 7878, "actioned": 53}, {"region": "NORTH WEST", "week": "2026-04-15", "total": 8586, "actioned": 128}, {"region": "NORTH WEST", "week": "2026-04-29", "total": 3615, "actioned": 9}, {"region": "NORTH WEST", "week": "2026-05-06", "total": 4612, "actioned": 140}, {"region": "NORTH WEST", "week": "2026-05-13", "total": 5223, "actioned": 199}, {"region": "NORTH WEST", "week": "2026-05-20", "total": 6777, "actioned": 91}, {"region": "NORTH WEST", "week": "2026-05-27", "total": 6843, "actioned": 160}, {"region": "NORTH WEST", "week": "2026-06-03", "total": 6747, "actioned": 116}, {"region": "NORTH WEST", "week": "2026-06-10", "total": 6466, "actioned": 104}, {"region": "NORTH WEST", "week": "2026-06-17", "total": 7059, "actioned": 463}, {"region": "PORT ELIZABETH", "week": "2025-10-01", "total": 14, "actioned": 14}, {"region": "PORT ELIZABETH", "week": "2025-10-09", "total": 1, "actioned": 1}, {"region": "PORT ELIZABETH", "week": "2025-10-22", "total": 6, "actioned": 3}, {"region": "PORT ELIZABETH", "week": "2025-10-30", "total": 3895, "actioned": 0}, {"region": "PORT ELIZABETH", "week": "2025-11-07", "total": 3533, "actioned": 54}, {"region": "PORT ELIZABETH", "week": "2025-11-14", "total": 1854, "actioned": 79}, {"region": "PORT ELIZABETH", "week": "2025-11-20", "total": 5, "actioned": 5}, {"region": "PORT ELIZABETH", "week": "2025-11-27", "total": 8, "actioned": 8}, {"region": "PORT ELIZABETH", "week": "2025-12-05", "total": 1259, "actioned": 92}, {"region": "PORT ELIZABETH", "week": "2025-12-12", "total": 1084, "actioned": 17}, {"region": "PORT ELIZABETH", "week": "2025-12-17", "total": 2323, "actioned": 104}, {"region": "PORT ELIZABETH", "week": "2026-01-14", "total": 1156, "actioned": 25}, {"region": "PORT ELIZABETH", "week": "2026-01-21", "total": 492, "actioned": 1}, {"region": "PORT ELIZABETH", "week": "2026-01-28", "total": 3093, "actioned": 698}, {"region": "PORT ELIZABETH", "week": "2026-02-04", "total": 6892, "actioned": 507}, {"region": "PORT ELIZABETH", "week": "2026-02-11", "total": 7182, "actioned": 474}, {"region": "PORT ELIZABETH", "week": "2026-02-18", "total": 7139, "actioned": 237}, {"region": "PORT ELIZABETH", "week": "2026-02-25", "total": 7362, "actioned": 443}, {"region": "PORT ELIZABETH", "week": "2026-03-04", "total": 6840, "actioned": 544}, {"region": "PORT ELIZABETH", "week": "2026-03-11", "total": 6761, "actioned": 561}, {"region": "PORT ELIZABETH", "week": "2026-03-18", "total": 6179, "actioned": 539}, {"region": "PORT ELIZABETH", "week": "2026-03-25", "total": 7250, "actioned": 279}, {"region": "PORT ELIZABETH", "week": "2026-04-01", "total": 5557, "actioned": 362}, {"region": "PORT ELIZABETH", "week": "2026-04-08", "total": 5862, "actioned": 609}, {"region": "PORT ELIZABETH", "week": "2026-04-15", "total": 6225, "actioned": 1069}, {"region": "PORT ELIZABETH", "week": "2026-04-29", "total": 2631, "actioned": 412}, {"region": "PORT ELIZABETH", "week": "2026-05-06", "total": 3323, "actioned": 531}, {"region": "PORT ELIZABETH", "week": "2026-05-13", "total": 3421, "actioned": 740}, {"region": "PORT ELIZABETH", "week": "2026-05-20", "total": 5158, "actioned": 704}, {"region": "PORT ELIZABETH", "week": "2026-05-27", "total": 5444, "actioned": 1216}, {"region": "PORT ELIZABETH", "week": "2026-06-03", "total": 5058, "actioned": 674}, {"region": "PORT ELIZABETH", "week": "2026-06-10", "total": 5263, "actioned": 839}, {"region": "PORT ELIZABETH", "week": "2026-06-17", "total": 5122, "actioned": 812}, {"region": "SWD", "week": "2025-10-01", "total": 20, "actioned": 18}, {"region": "SWD", "week": "2025-10-15", "total": 66, "actioned": 66}, {"region": "SWD", "week": "2025-10-22", "total": 83, "actioned": 81}, {"region": "SWD", "week": "2025-10-30", "total": 2383, "actioned": 156}, {"region": "SWD", "week": "2025-11-07", "total": 2225, "actioned": 271}, {"region": "SWD", "week": "2025-11-14", "total": 1363, "actioned": 132}, {"region": "SWD", "week": "2025-11-20", "total": 2, "actioned": 2}, {"region": "SWD", "week": "2025-11-27", "total": 2, "actioned": 2}, {"region": "SWD", "week": "2025-12-05", "total": 1150, "actioned": 166}, {"region": "SWD", "week": "2025-12-12", "total": 836, "actioned": 23}, {"region": "SWD", "week": "2025-12-17", "total": 1464, "actioned": 143}, {"region": "SWD", "week": "2026-01-14", "total": 878, "actioned": 84}, {"region": "SWD", "week": "2026-01-21", "total": 326, "actioned": 19}, {"region": "SWD", "week": "2026-01-28", "total": 2003, "actioned": 199}, {"region": "SWD", "week": "2026-02-04", "total": 3157, "actioned": 199}, {"region": "SWD", "week": "2026-02-11", "total": 3556, "actioned": 278}, {"region": "SWD", "week": "2026-02-18", "total": 3396, "actioned": 244}, {"region": "SWD", "week": "2026-02-25", "total": 3682, "actioned": 228}, {"region": "SWD", "week": "2026-03-04", "total": 3442, "actioned": 332}, {"region": "SWD", "week": "2026-03-11", "total": 3348, "actioned": 273}, {"region": "SWD", "week": "2026-03-18", "total": 3069, "actioned": 171}, {"region": "SWD", "week": "2026-03-25", "total": 3761, "actioned": 378}, {"region": "SWD", "week": "2026-04-01", "total": 2483, "actioned": 292}, {"region": "SWD", "week": "2026-04-08", "total": 2729, "actioned": 444}, {"region": "SWD", "week": "2026-04-15", "total": 3367, "actioned": 819}, {"region": "SWD", "week": "2026-04-29", "total": 1627, "actioned": 211}, {"region": "SWD", "week": "2026-05-06", "total": 1571, "actioned": 472}, {"region": "SWD", "week": "2026-05-13", "total": 1475, "actioned": 523}, {"region": "SWD", "week": "2026-05-20", "total": 2706, "actioned": 567}, {"region": "SWD", "week": "2026-05-27", "total": 3092, "actioned": 859}, {"region": "SWD", "week": "2026-06-03", "total": 2854, "actioned": 696}, {"region": "SWD", "week": "2026-06-10", "total": 2833, "actioned": 518}, {"region": "SWD", "week": "2026-06-17", "total": 2896, "actioned": 362}, {"region": "WESTERN CAPE", "week": "2025-10-01", "total": 32, "actioned": 32}, {"region": "WESTERN CAPE", "week": "2025-10-09", "total": 4, "actioned": 4}, {"region": "WESTERN CAPE", "week": "2025-10-15", "total": 18, "actioned": 18}, {"region": "WESTERN CAPE", "week": "2025-10-22", "total": 10, "actioned": 10}, {"region": "WESTERN CAPE", "week": "2025-10-30", "total": 18925, "actioned": 6}, {"region": "WESTERN CAPE", "week": "2025-11-07", "total": 17194, "actioned": 11}, {"region": "WESTERN CAPE", "week": "2025-11-14", "total": 9869, "actioned": 417}, {"region": "WESTERN CAPE", "week": "2025-11-20", "total": 25, "actioned": 25}, {"region": "WESTERN CAPE", "week": "2025-11-27", "total": 23, "actioned": 23}, {"region": "WESTERN CAPE", "week": "2025-12-05", "total": 6875, "actioned": 81}, {"region": "WESTERN CAPE", "week": "2025-12-12", "total": 5514, "actioned": 11}, {"region": "WESTERN CAPE", "week": "2025-12-17", "total": 7510, "actioned": 61}, {"region": "WESTERN CAPE", "week": "2026-01-14", "total": 6340, "actioned": 317}, {"region": "WESTERN CAPE", "week": "2026-01-21", "total": 2113, "actioned": 213}, {"region": "WESTERN CAPE", "week": "2026-01-28", "total": 15122, "actioned": 1840}, {"region": "WESTERN CAPE", "week": "2026-02-04", "total": 40146, "actioned": 1871}, {"region": "WESTERN CAPE", "week": "2026-02-11", "total": 37127, "actioned": 2088}, {"region": "WESTERN CAPE", "week": "2026-02-18", "total": 41248, "actioned": 2162}, {"region": "WESTERN CAPE", "week": "2026-02-25", "total": 45325, "actioned": 1612}, {"region": "WESTERN CAPE", "week": "2026-03-04", "total": 39441, "actioned": 1319}, {"region": "WESTERN CAPE", "week": "2026-03-11", "total": 41245, "actioned": 980}, {"region": "WESTERN CAPE", "week": "2026-03-18", "total": 35793, "actioned": 603}, {"region": "WESTERN CAPE", "week": "2026-03-25", "total": 40856, "actioned": 495}, {"region": "WESTERN CAPE", "week": "2026-04-01", "total": 32759, "actioned": 310}, {"region": "WESTERN CAPE", "week": "2026-04-08", "total": 35903, "actioned": 328}, {"region": "WESTERN CAPE", "week": "2026-04-15", "total": 39660, "actioned": 353}, {"region": "WESTERN CAPE", "week": "2026-04-29", "total": 15022, "actioned": 141}, {"region": "WESTERN CAPE", "week": "2026-05-06", "total": 18977, "actioned": 275}, {"region": "WESTERN CAPE", "week": "2026-05-13", "total": 19528, "actioned": 545}, {"region": "WESTERN CAPE", "week": "2026-05-20", "total": 28182, "actioned": 142}, {"region": "WESTERN CAPE", "week": "2026-05-27", "total": 31253, "actioned": 598}, {"region": "WESTERN CAPE", "week": "2026-06-03", "total": 29758, "actioned": 589}, {"region": "WESTERN CAPE", "week": "2026-06-10", "total": 31864, "actioned": 653}, {"region": "WESTERN CAPE", "week": "2026-06-17", "total": 32352, "actioned": 667}]</script>
 </main>
 
 <style id="authBlurStyle">
@@ -571,74 +439,3 @@ tbody tr:last-child td{font-weight:900!important;background:#f2f6fb!important;bo
     </div>
   </div>
 
-
-
-<script id="stockfix-redesign-enhancer">
-(function(){
-  const fmt = n => Number(n||0).toLocaleString('en-ZA');
-  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  const classKey = label => {
-    const n = norm(label);
-    if(n.includes('optimal')) return 'optimal';
-    if(n.includes('overstock')) return 'overstock';
-    if(n.includes('understock')) return 'understock';
-    if(n.includes('outofstock')||n==='oos') return 'outofstock';
-    if(n.includes('nosales')||n.includes('idle')) return 'idle';
-    if(n.includes('negative')) return 'negative';
-    return 'other';
-  };
-  function readSummary(){
-    const map = {};
-    document.querySelectorAll('#classSummaryBody tr').forEach(tr=>{
-      const t=[...tr.children].map(td=>td.textContent.trim());
-      if(!t.length || norm(t[0])==='total') return;
-      const k=classKey(t[0]);
-      map[k]={label:t[0],total:t[1],done:t[2],pending:t[3],rate:t[4]};
-    });
-    return map;
-  }
-  function enhanceCards(){
-    const cards=[...document.querySelectorAll('#taskBreakdownGrid .spark-card')];
-    if(!cards.length) return false;
-    const summary=readSummary();
-    cards.forEach(card=>{
-      const label=(card.querySelector('.spark-label')||card).textContent.trim();
-      const key=classKey(label);
-      card.dataset.sfClass=key;
-      card.querySelectorAll('.spark-canvas-wrap, canvas').forEach(el=>el.remove());
-      if(!card.querySelector('.sf-card-footer')){
-        const rec=summary[key]||{};
-        const footer=document.createElement('div');
-        footer.className='sf-card-footer';
-        footer.innerHTML='<span>'+(rec.done||'0')+' completed</span><span>'+(rec.rate||'0.0%')+'</span>';
-        card.appendChild(footer);
-      }
-    });
-    return true;
-  }
-  function enhanceImpact(){
-    const completed=(document.querySelector('.icon-kpi-card:nth-child(2) .value')||{}).textContent || '';
-    const stores=(document.querySelector('.icon-kpi-card:nth-child(5) .value')||{}).textContent || '';
-    const title=document.getElementById('weeklyImpactTitle');
-    if(title && completed && stores) title.textContent='Completing '+completed.trim()+' tasks this week delivered measurable stock health improvements across '+stores.trim()+' stores';
-    const summary=readSummary();
-    const ids={idle:'impactIdleCleared',understock:'impactUnderResolved',overstock:'impactOverFixed',outofstock:'impactOosReplenished'};
-    Object.entries(ids).forEach(([k,id])=>{ const el=document.getElementById(id); if(el && summary[k] && summary[k].done) el.textContent=summary[k].done; });
-  }
-  function relabelKpis(){
-    const labels=[...document.querySelectorAll('.icon-kpi-card .label')];
-    labels.forEach(l=>{ l.textContent=l.textContent.replace('TOTAL LINES','TOTAL TASKS').replace('ACTIONED','COMPLETED'); });
-  }
-  function compactCharts(){
-    document.querySelectorAll('.panel').forEach(p=>{ p.style.minHeight=''; p.style.height=''; });
-    const actionWrap=document.querySelector('#actionTakenChart')?.closest('div[style*="display:flex"]');
-    if(actionWrap) actionWrap.classList.add('sf-action-wrap');
-  }
-  function run(){ enhanceCards(); enhanceImpact(); relabelKpis(); compactCharts(); }
-  document.addEventListener('DOMContentLoaded', run);
-  window.addEventListener('load', run);
-  let count=0; const timer=setInterval(()=>{run(); if(++count>20) clearInterval(timer);},500);
-})();
-</script>
-</body>
-</html>
