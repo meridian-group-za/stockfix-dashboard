@@ -439,3 +439,1529 @@
     </div>
   </div>
 
+
+<script>
+// =========================================================================
+// CONFIG — fill these in once the Azure AD app registration is confirmed
+// =========================================================================
+const MSAL_CONFIG = {
+  clientId: "2e19d14d-6914-4f52-8bbb-119481314eef",
+  tenantId: "cbe83df2-b350-4dab-8d5f-f78d21fe7d27", // Meridian Group tenant
+  redirectUri: "https://meridian-group-za.github.io/stockfix-dashboard/",
+};
+
+// SharePoint site + folder where process_stockfix.py output was uploaded.
+const SHAREPOINT_HOSTNAME = "meridiangroupza.sharepoint.com";
+const SHAREPOINT_SITE_PATH = "/sites/StockFixInventory";
+const DASHBOARD_DATA_FOLDER = "StockFix/dashboard-data";
+
+// =========================================================================
+// MSAL setup
+// =========================================================================
+const msalInstance = new msal.PublicClientApplication({
+  auth: {
+    clientId: MSAL_CONFIG.clientId,
+    authority: `https://login.microsoftonline.com/${MSAL_CONFIG.tenantId}`,
+    redirectUri: MSAL_CONFIG.redirectUri,
+  },
+  cache: { cacheLocation: "sessionStorage" },
+});
+
+const GRAPH_SCOPES = ["Sites.Read.All"];
+
+async function getGraphToken() {
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length === 0) throw new Error("Not signed in");
+  try {
+    const result = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
+    return result.accessToken;
+  } catch (e) {
+    const result = await msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES });
+    return result.accessToken;
+  }
+}
+
+async function graphFetch(url, accessToken, asArrayBuffer) {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Graph request failed (${res.status}): ${url}`);
+  return asArrayBuffer ? res.arrayBuffer() : res.json();
+}
+
+let siteId = null;
+let driveId = null;
+
+async function resolveSiteAndDrive(token) {
+  const site = await graphFetch(
+    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOSTNAME}:${SHAREPOINT_SITE_PATH}`,
+    token
+  );
+  siteId = site.id;
+  const drive = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive`, token);
+  driveId = drive.id;
+}
+
+async function fetchJsonFile(token, relativePath) {
+  // Plain string template literal path (not encodeURIComponent) — matches the
+  // working pattern used for the P&G Initiatives / Staedtler dashboards on this tenant.
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
+  return graphFetch(url, token);
+}
+
+async function fetchGzJsonlFile(token, relativePath) {
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
+  const buf = await graphFetch(url, token, true);
+  const text = pako.inflate(new Uint8Array(buf), { to: "string" });
+  return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
+}
+
+// =========================================================================
+// Data loading
+// =========================================================================
+let rollup = [];          // built client-side from summary.json: [{week, client, classification, count}]
+let actionStatusRollup = [];
+let weeksIndex = [];
+let weekRowCache = {};    // week -> full row array, loaded on demand
+let LATEST_WEEK = null;
+
+function buildRollups(summaryRows) {
+  const byClientClass = {};
+  const byStatus = {};
+  summaryRows.forEach(r => {
+    const k1 = `${r.week}\u0001${r.client}\u0001${r.classification}`;
+    byClientClass[k1] = (byClientClass[k1] || 0) + r.count;
+    const k2 = `${r.week}\u0001${r.actionStatus}`;
+    byStatus[k2] = (byStatus[k2] || 0) + r.count;
+  });
+  rollup = Object.entries(byClientClass).map(([k, count]) => {
+    const [week, client, classification] = k.split("\u0001");
+    return { week, client, classification, count };
+  });
+  actionStatusRollup = Object.entries(byStatus).map(([k, count]) => {
+    const [week, actionStatus] = k.split("\u0001");
+    return { week, actionStatus, count };
+  });
+}
+
+async function loadAllData(token) {
+  document.getElementById("authStatus").textContent = "Resolving SharePoint site...";
+  await resolveSiteAndDrive(token);
+
+  document.getElementById("authStatus").textContent = "Loading summary + week index...";
+  const [summaryRows, weeksIdx] = await Promise.all([
+    fetchJsonFile(token, `${DASHBOARD_DATA_FOLDER}/summary.json`),
+    fetchJsonFile(token, `${DASHBOARD_DATA_FOLDER}/weeks_index.json`),
+  ]);
+  buildRollups(summaryRows);
+  weeksIndex = weeksIdx;
+  LATEST_WEEK = weeksIndex[weeksIndex.length - 1].week;
+  state.week = LATEST_WEEK;
+
+  document.getElementById("authStatus").textContent = `Loading latest week (${LATEST_WEEK})...`;
+  await loadWeek(token, LATEST_WEEK);
+
+  document.getElementById("authStatus").textContent = "Connected";
+  document.getElementById("authOverlay").style.display = "none";
+  document.body.classList.remove("auth-pending");
+  initUI();
+}
+
+async function loadWeek(token, week) {
+  if (weekRowCache[week]) return weekRowCache[week];
+  const entry = weeksIndex.find(w => w.week === week);
+  if (!entry) return [];
+  const gzPath = `${DASHBOARD_DATA_FOLDER}/${entry.file}.gz`; // weeks/week_YYYY-MM-DD.jsonl.gz
+  const rows = await fetchGzJsonlFile(token, gzPath);
+  weekRowCache[week] = rows;
+  return rows;
+}
+
+// =========================================================================
+// Sign-in
+// =========================================================================
+document.getElementById("signInBtn").addEventListener("click", async () => {
+  const errEl = document.getElementById("authError");
+  const btn = document.getElementById("signInBtn");
+  errEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Signing in...";
+  try {
+    await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
+    const token = await getGraphToken();
+    await loadAllData(token);
+  } catch (e) {
+    console.error(e);
+    errEl.textContent = "Sign-in failed - please try again.";
+    btn.disabled = false;
+    btn.textContent = "Sign in with Microsoft";
+  }
+});
+
+// =========================================================================
+// Rendering — same logic as the preview build, now driven by live data
+// =========================================================================
+const CLASS_HEX = {
+  'Optimal': '#1f9d6b','Overstock': '#d9a72e','Understock': '#2c8fae',
+  'Out of Stock': '#c93b3b','No Sales (Idle Stock)': '#7c8aa0','Negative SOH': '#9b2fae',
+};
+const STATUS_HEX = {
+  'Actioned': '#1f9d6b', 'Completed': '#1f9d6b', 'Fixed': '#1f9d6b',
+  'Pending': '#e0a82e', 'Not Actioned': '#c93b3b', 'Not Fixed': '#c93b3b',
+  'Escalated': '#9b2fae', 'Unknown': '#a8b3bf',
+};
+function statusColor(s){
+  if (STATUS_HEX[s]) return STATUS_HEX[s];
+  if (s.includes('Escalated')) return '#9b2fae';
+  if (s.includes('Pending')) return '#e0a82e';
+  if (s.includes('Actioned')) return '#1f9d6b';
+  return '#a8b3bf';
+}
+
+let state = {
+  client: '__all__', week: null, banner: '__all__', region: '__all__', classification: '__all__',
+  status: '__all__', search: '', page: 1, pageSize: 50,
+};
+
+let clientFilterEl, weekFilterEl, bannerFilterEl, regionFilterEl, classFilterEl, statusFilterEl;
+
+function initUI() {
+  clientFilterEl = document.getElementById('clientFilter');
+  weekFilterEl = document.getElementById('weekFilter');
+  bannerFilterEl = document.getElementById('bannerFilter');
+  regionFilterEl = document.getElementById('regionFilter');
+  classFilterEl = document.getElementById('classFilter');
+  statusFilterEl = document.getElementById('statusFilter');
+
+  const clients = [...new Set(rollup.map(r => r.client))].sort();
+  clients.forEach(c => {
+    const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
+    clientFilterEl.appendChild(opt);
+  });
+
+  weeksIndex.forEach(w => {
+    const opt = document.createElement('option');
+    opt.value = w.week;
+    opt.textContent = `Week ending ${w.week} (${w.rowCount.toLocaleString()} lines)`;
+    if (w.week === LATEST_WEEK) opt.selected = true;
+    weekFilterEl.appendChild(opt);
+  });
+
+  const currentRows = weekRowCache[LATEST_WEEK] || [];
+  const banners = [...new Set(currentRows.map(r => r.banner))].filter(Boolean).sort();
+  banners.forEach(b => {
+    const opt = document.createElement('option'); opt.value = b; opt.textContent = b;
+    bannerFilterEl.appendChild(opt);
+  });
+  const regions = [...new Set(currentRows.map(r => r.region))].filter(Boolean).sort();
+  regions.forEach(r => {
+    const opt = document.createElement('option'); opt.value = r; opt.textContent = r;
+    regionFilterEl.appendChild(opt);
+  });
+  Object.keys(CLASS_HEX).forEach(c => {
+    const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
+    classFilterEl.appendChild(opt);
+  });
+  const statuses = [...new Set(currentRows.map(r => r.actionStatus))].filter(Boolean).sort();
+  statuses.forEach(s => {
+    const opt = document.createElement('option'); opt.value = s; opt.textContent = s;
+    statusFilterEl.appendChild(opt);
+  });
+
+  document.getElementById('subtitle').textContent =
+    `Live SharePoint feed \u00b7 ${weeksIndex.length} weeks tracked`;
+
+  clientFilterEl.addEventListener('change', e => { state.client = e.target.value; state.page = 1; feedbackPage = 1; rerenderAll(); });
+  weekFilterEl.addEventListener('change', async e => {
+    state.week = e.target.value; state.page = 1; feedbackPage = 1;
+    document.getElementById('authStatus').textContent = `Loading week ${state.week}...`;
+    const token = await getGraphToken();
+    await loadWeek(token, state.week);
+    document.getElementById('authStatus').textContent = 'Connected';
+    rerenderAll();
+  });
+  bannerFilterEl.addEventListener('change', e => { state.banner = e.target.value; state.page = 1; feedbackPage = 1; rerenderAll(); });
+  regionFilterEl.addEventListener('change', e => { state.region = e.target.value; state.page = 1; feedbackPage = 1; rerenderAll(); });
+  classFilterEl.addEventListener('change', e => { state.classification = e.target.value; state.page = 1; feedbackPage = 1; rerenderAll(); });
+  statusFilterEl.addEventListener('change', e => { state.status = e.target.value; state.page = 1; feedbackPage = 1; rerenderAll(); });
+  document.getElementById('searchBox').addEventListener('input', e => { state.search = e.target.value; state.page = 1; feedbackPage = 1; renderTable(); renderFeedbackFeed(); });
+  document.getElementById('prevPage').addEventListener('click', () => { if (state.page>1){ state.page--; renderTable(); } });
+  document.getElementById('nextPage').addEventListener('click', () => { state.page++; renderTable(); });
+  document.getElementById('feedbackPrevPage').addEventListener('click', () => { if (feedbackPage>1){ feedbackPage--; renderFeedbackFeed(); } });
+  document.getElementById('feedbackNextPage').addEventListener('click', () => { feedbackPage++; renderFeedbackFeed(); });
+  document.getElementById('skuSearchBox').addEventListener('input', e => { skuSearch = e.target.value; renderSkuInsights(); });
+  document.getElementById('storeSelector').addEventListener('change', () => { renderStoreDeepDive(); });
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'repmanager') safeRender('rmKpiRow', renderRepManagerTab);
+    });
+  });
+
+  rerenderAll();
+}
+
+function currentWeekRows(){ return weekRowCache[state.week] || []; }
+
+function rollupFiltered(){
+  return rollup.filter(r => state.client === '__all__' || r.client === state.client);
+}
+function weeklyClassificationTotals(){
+  const data = rollupFiltered();
+  const byWeek = {};
+  data.forEach(r => {
+    byWeek[r.week] = byWeek[r.week] || {};
+    byWeek[r.week][r.classification] = (byWeek[r.week][r.classification] || 0) + Number(r.count);
+  });
+  return byWeek;
+}
+function filteredRows(){
+  return currentWeekRows().filter(r => {
+    if (state.client !== '__all__' && r.client !== state.client) return false;
+    if (state.banner !== '__all__' && r.banner !== state.banner) return false;
+    if (state.region !== '__all__' && r.region !== state.region) return false;
+    if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (state.status !== '__all__' && r.actionStatus !== state.status) return false;
+    if (state.search) {
+      const s = state.search.toLowerCase();
+      const hay = [r.store, r.article, r.barcode, r.rep, r.manager].join(' ').toLowerCase();
+      if (!hay.includes(s)) return false;
+    }
+    return true;
+  });
+}
+
+const ICONS = {
+  list: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  check: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  clock: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  percent: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+  store: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M3 9a2 2 0 004 0 2 2 0 004 0 2 2 0 004 0 2 2 0 004 0"/><path d="M4 9v9a1 1 0 001 1h14a1 1 0 001-1V9"/></svg>`,
+  box: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+};
+
+function getPrevWeekKey(){
+  const idx = weeksIndex.findIndex(w => w.week === state.week);
+  if (idx <= 0) return null;
+  return weeksIndex[idx-1].week;
+}
+function getPrevWeekFilteredRows(){
+  const pk = getPrevWeekKey();
+  if (!pk) return null;
+  const prevRows = weekRowCache[pk];
+  if (!prevRows) return null; // not loaded yet - ensurePrevWeekLoaded() fetches it in the background
+  return prevRows.filter(r => {
+    if (state.client !== '__all__' && r.client !== state.client) return false;
+    if (state.banner !== '__all__' && r.banner !== state.banner) return false;
+    if (state.region !== '__all__' && r.region !== state.region) return false;
+    if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (state.status !== '__all__' && r.actionStatus !== state.status) return false;
+    return true;
+  });
+}
+async function ensurePrevWeekLoaded(){
+  const pk = getPrevWeekKey();
+  if (!pk || weekRowCache[pk]) return;
+  try {
+    const token = await getGraphToken();
+    await loadWeek(token, pk);
+    rerenderAll(); // re-render once the prior week's data is in, so deltas populate
+  } catch (e) {
+    console.warn('Could not load prior week for comparison', e);
+  }
+}
+function deltaHtml(curr, prev, isPct, goodUp){
+  // goodUp: true = up is good (green), false = up is bad (red)
+  if (prev === null || prev === undefined) return `<span class="delta" style="color:var(--text-400);">vs prior week: n/a</span>`;
+  const diff = curr - prev;
+  if (diff === 0) return `<span class="delta" style="color:var(--text-400);">flat vs prior week</span>`;
+  const up = diff > 0;
+  const arrow = up ? '\u2191' : '\u2193';
+  const isGood = goodUp ? up : !up;
+  const color = isGood ? 'var(--c-optimal)' : 'var(--c-oos)';
+  const display = isPct ? `${Math.abs(diff).toFixed(1)} pts` : Math.abs(diff).toLocaleString();
+  return `<span class="delta" style="color:${color};">${arrow} ${display} vs prior week</span>`;
+}
+
+
+const KPI_ICONS = {
+  total: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  pct: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+  store: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  box: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`,
+};
+
+const CLS_ICONS = {
+  'Optimal': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+  'Overstock': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+  'Understock': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 6 10.5 15.5 15.5 10.5 23 18"/><polyline points="7 6 1 6 1 12"/></svg>`,
+  'Out of Stock': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+  'No Sales (Idle Stock)': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  'No Sales (Dead Stock)': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  'Negative SOH': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+};
+
+const CLS_BG = {
+  'Optimal':'#d5f5e3','Overstock':'#fff0d6','Understock':'#ddf0f8',
+  'Out of Stock':'#fce4e4','No Sales (Idle Stock)':'#f0f2f5',
+  'No Sales (Dead Stock)':'#ede8f5','Negative SOH':'#f3e8f8',
+};
+
+const IMPACT_ICONS = {
+  idle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  under: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+  over: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+  oos: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+};
+
+function renderIconKpiRow(){
+  const rows = filteredRows().length > 0 ? filteredRows() : currentWeekRows().filter(r => state.client === '__all__' || r.client === state.client);
+  const total = rows.length;
+  const actioned = rows.filter(r => isActioned(r.actionStatus)).length;
+  const pending = rows.filter(r => isPending(r.actionStatus)).length;
+  const completionRate = total ? Math.round((actioned/total)*1000)/10 : 0;
+  const stores = new Set(rows.map(r=>r.store)).size;
+  const skus = new Set(rows.map(r=>r.article)).size;
+
+  const prevRows = getPrevWeekFilteredRows();
+  let prev = null;
+  if (prevRows) {
+    const pAct = prevRows.filter(r=>isActioned(r.actionStatus)).length;
+    prev = {
+      total: prevRows.length, actioned: pAct, pending: prevRows.length - pAct,
+      rate: prevRows.length ? Math.round((pAct/prevRows.length)*1000)/10 : 0,
+      stores: new Set(prevRows.map(r=>r.store)).size,
+      skus: new Set(prevRows.map(r=>r.article)).size,
+    };
+  } else { ensurePrevWeekLoaded(); }
+
+  function dd(curr, p, goodUp, isPct){
+    if (!prev || p === null || p === undefined) return '';
+    const diff = curr - p;
+    if (diff === 0) return `<span class="kpi-delta" style="color:var(--muted);">flat vs prior</span>`;
+    const up = diff > 0;
+    const good = goodUp ? up : !up;
+    const cls = good ? 'delta-good' : 'delta-bad';
+    const arrow = up ? '↑' : '↓';
+    const val = isPct ? Math.abs(diff).toFixed(1)+' pts' : Math.abs(diff).toLocaleString();
+    return `<span class="kpi-delta ${cls}">${arrow} ${val} vs prior</span>`;
+  }
+
+  const cards = [
+    {emoji:'📋', bg:'#eef4fb', label:'Total Tasks', value:total.toLocaleString(), delta: dd(total, prev?.total, false, false)},
+    {emoji:'✅', bg:'#e8f7ef', label:'Completed', value:actioned.toLocaleString(), delta: dd(actioned, prev?.actioned, true, false)},
+    {emoji:'⏳', bg:'#fdebd0', label:'Pending', value:pending.toLocaleString(), delta: dd(pending, prev?.pending, false, false)},
+    {emoji:'📊', bg:'#f4ecf7', label:'Completion Rate', value:completionRate+'%', delta: dd(completionRate, prev?.rate, true, true)},
+    {emoji:'🏬', bg:'#e8f4f8', label:'Stores Impacted', value:stores.toLocaleString(), delta: dd(stores, prev?.stores, false, false)},
+    {emoji:'📦', bg:'#fff0e8', label:'SKUs Impacted', value:skus.toLocaleString(), delta: dd(skus, prev?.skus, false, false)},
+  ];
+
+  const el = document.getElementById('iconKpiRow');
+  if (!el) return;
+  el.innerHTML = cards.map(c => `
+    <div class="icon-kpi-card">
+      <div class="icon" style="background:${c.bg};">${c.emoji}</div>
+      <div>
+        <div class="kpi-label">${c.label}</div>
+        <div class="kpi-value">${c.value}</div>
+        ${c.delta}
+      </div>
+    </div>
+  `).join('');
+
+  // Impact banner
+  const bannerEl = document.getElementById('impactBanner');
+  if (bannerEl && total > 0) {
+    const rows2 = filteredRows();
+    const idle = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='No Sales (Idle Stock)').length;
+    const under = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Understock').length;
+    const over = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Overstock').length;
+    const oos = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Out of Stock').length;
+    bannerEl.innerHTML = `
+      <div>
+        <div class="impact-banner-eyebrow">Weekly impact report</div>
+        <div class="impact-banner-title">Completing ${actioned.toLocaleString()} tasks this week delivered measurable stock health improvements across ${stores.toLocaleString()} stores</div>
+        <div class="impact-banner-note">Focus area: no sales / idle stock remains the biggest opportunity.</div>
+      </div>
+      <div class="impact-metric"><div class="num">${idle.toLocaleString()}</div><div class="lbl">Idle stock cleared</div></div>
+      <div class="impact-metric"><div class="num">${under.toLocaleString()}</div><div class="lbl">Understocks resolved</div></div>
+      <div class="impact-metric"><div class="num">${over.toLocaleString()}</div><div class="lbl">Overstocks fixed</div></div>
+      <div class="impact-metric"><div class="num">${oos.toLocaleString()}</div><div class="lbl">OOS replenished</div></div>
+    `;
+  }
+
+  // Focus bar
+  const focusEl = document.getElementById('focusBar');
+  if (focusEl) {
+    const counts = {};
+    rows.forEach(r => { counts[r.classification] = (counts[r.classification]||0)+1; });
+    const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    const topPct = top && total ? Math.round((top[1]/total)*1000)/10 : 0;
+    const rate = top ? rows.filter(r=>r.classification===top[0]&&isActioned(r.actionStatus)).length : 0;
+    const ratePct = top ? Math.round((rate/top[1])*1000)/10 : 0;
+    if (top) {
+      focusEl.innerHTML = `
+        <div class="focus-bar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <span>Focus this week: <b>${top[0]}</b> represents <b>${topPct}%</b> of all issues (${top[1].toLocaleString()} lines) with a <b>${ratePct}%</b> completion rate — keep actioning tasks to improve availability.</span>
+      `;
+    }
+  }
+}
+
+
+function renderActionedPendingBars(){
+  const rows = filteredRows();
+  const classes = Object.keys(CLASS_HEX);
+  const stats = classes.map(cls => {
+    const subset = rows.filter(r=>r.classification===cls);
+    const actionedN = subset.filter(r=>isActioned(r.actionStatus)).length;
+    return {cls, total: subset.length, actioned: actionedN, pending: subset.length - actionedN};
+  }).filter(s => s.total > 0);
+  const maxTotal = Math.max(1, ...stats.map(s=>s.total));
+  const container = document.getElementById('actionedPendingBars');
+  if (stats.length === 0) { container.innerHTML = `<div class="muted" style="padding:16px;text-align:center;">No rows match these filters.</div>`; return; }
+  const legend = `<div style="display:flex;gap:14px;margin-bottom:9px;font-size:10px;color:var(--muted);">
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#123a63;border-radius:2px;display:inline-block;"></span>Actioned</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#d9e1e9;border-radius:2px;display:inline-block;"></span>Pending</span>
+  </div>`;
+  container.innerHTML = legend + stats.map(s => {
+    const actionedPct = (s.actioned/maxTotal)*100;
+    return `<div class="bar-row">
+      <div class="bar-label">${s.cls}</div>
+      <div class="bar-track">
+        <div class="bar-seg actioned" style="width:${actionedPct}%;"></div>
+        <div class="bar-seg pending"></div>
+      </div>
+      <div class="bar-total">${s.total.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderClassificationSummaryTable(){
+  const rows = filteredRows();
+  const classes = Object.keys(CLASS_HEX);
+  const body = document.getElementById('classSummaryBody');
+  const totals = {total:0, actioned:0, pending:0};
+  const lines = classes.map(cls => {
+    const subset = rows.filter(r=>r.classification===cls);
+    if (subset.length===0) return null;
+    const actionedN = subset.filter(r=>isActioned(r.actionStatus)).length;
+    const pendingN = subset.length - actionedN;
+    const rate = subset.length ? Math.round((actionedN/subset.length)*1000)/10 : 0;
+    const rcCounts = {};
+    subset.filter(r=>isActioned(r.actionStatus)&&r.reasonCode).forEach(r=>{ rcCounts[r.reasonCode]=(rcCounts[r.reasonCode]||0)+1; });
+    const topAction = Object.entries(rcCounts).sort((a,b)=>b[1]-a[1])[0];
+    totals.total += subset.length; totals.actioned += actionedN; totals.pending += pendingN;
+    const shortCls = cls.replace('No Sales (Idle Stock)','No Sales (Idle)').replace('No Sales (Dead Stock)','No Sales (Dead)');
+    return `<tr><td>${shortCls}</td><td>${subset.length.toLocaleString()}</td><td>${actionedN.toLocaleString()}</td><td>${pendingN.toLocaleString()}</td><td>${rate}%</td><td class="wrap" style="white-space:normal;font-size:9px;color:#60758a;">${topAction?topAction[0]:''}</td></tr>`;
+  }).filter(Boolean);
+  if (lines.length === 0) {
+    body.innerHTML = `<tr><td colspan="6" class="muted" style="padding:20px;text-align:center;">No rows match these filters.</td></tr>`;
+    return;
+  }
+  const totalRate = totals.total ? Math.round((totals.actioned/totals.total)*1000)/10 : 0;
+  body.innerHTML = lines.join('') + `<tr style="font-weight:700;border-top:2px solid var(--line);background:#f3f6fa;"><td>TOTAL</td><td>${totals.total.toLocaleString()}</td><td>${totals.actioned.toLocaleString()}</td><td>${totals.pending.toLocaleString()}</td><td>${totalRate}%</td><td>\u2014</td></tr>`;
+}
+
+let actionTakenChartInstance = null;
+function renderActionTakenChart(){
+  const rows = filteredRows();
+  const counts = {};
+  rows.filter(r => isActioned(r.actionStatus)).forEach(r => {
+    const a = r.reasonCode || 'Unknown';
+    counts[a] = (counts[a]||0) + 1;
+  });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const totalActioned = sorted.reduce((s,[,n]) => s+n, 0);
+  const palette = ['#003B71','#FF6C0E','#2c8fae','#1f9d6b','#d9a72e','#9b2fae'];
+
+  const ctx = document.getElementById('actionTakenChart');
+  if (ctx) { ctx.style.display='none'; }
+  if (sorted.length === 0) return;
+
+  // CSS conic-gradient donut
+  let deg = 0;
+  const stops = sorted.map(([,n], i) => {
+    const pct = (n / totalActioned) * 360;
+    const s = `${palette[i]} ${deg}deg ${deg+pct}deg`;
+    deg += pct;
+    return s;
+  });
+
+  // Find or create donut-wrap
+  const rootEl = document.getElementById('donutRootCause');
+  const container = rootEl || (ctx ? ctx.parentNode : null);
+  if (!container) return;
+  let donutWrap = container.querySelector('.donut-wrap');
+  if (!donutWrap) {
+    donutWrap = document.createElement('div');
+    donutWrap.className = 'donut-wrap';
+    container.appendChild(donutWrap);
+  }
+
+  const legendRows = sorted.map(([action, count], i) => {
+    const pct = totalActioned ? Math.round((count/totalActioned)*1000)/10 : 0;
+    const short = action.length > 38 ? action.slice(0,38)+'…' : action;
+    return `<div class="donut-legend-row"><span><span class="donut-dot" style="background:${palette[i]};"></span>${short}</span><span>${pct}%</span></div>`;
+  }).join('');
+
+  donutWrap.innerHTML = `
+    <div class="css-donut" style="background:conic-gradient(${stops.join(',')});"></div>
+    <div class="donut-legend">${legendRows}</div>
+  `;
+
+  const tbody = document.getElementById('actionTakenTableBody');
+  if (tbody) tbody.innerHTML = '';
+
+  // Top 5 SKUs with top reason code
+  const top5El = document.getElementById('top5SkuReason');
+  if (top5El) {
+    const allRows = filteredRows();
+    const skuMap = {};
+    allRows.filter(function(r){ return isActioned(r.actionStatus) && r.reasonCode; }).forEach(function(r) {
+      var key = r.article || 'Unknown';
+      if (!skuMap[key]) skuMap[key] = {total:0, reasons:{}};
+      skuMap[key].total++;
+      skuMap[key].reasons[r.reasonCode] = (skuMap[key].reasons[r.reasonCode]||0) + 1;
+    });
+    var top5 = Object.entries(skuMap).sort(function(a,b){return b[1].total-a[1].total;}).slice(0,5);
+    if (top5.length === 0) {
+      top5El.innerHTML = '';
+    } else {
+      top5El.innerHTML = '<div style="font-size:8.5px;font-weight:800;color:#60758a;text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px;">Top 5 SKUs actioned &middot; reason code</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:9px;">' +
+        '<thead><tr>' +
+          '<th style="background:#003B71;color:#fff;padding:4px 6px;text-align:left;font-size:8px;text-transform:uppercase;letter-spacing:.25px;">Article</th>' +
+          '<th style="background:#003B71;color:#fff;padding:4px 6px;text-align:right;font-size:8px;text-transform:uppercase;letter-spacing:.25px;">Done</th>' +
+          '<th style="background:#003B71;color:#fff;padding:4px 6px;text-align:left;font-size:8px;text-transform:uppercase;letter-spacing:.25px;">Top reason</th>' +
+          '<th style="background:#003B71;color:#fff;padding:4px 6px;text-align:right;font-size:8px;text-transform:uppercase;letter-spacing:.25px;">%</th>' +
+        '</tr></thead><tbody>' +
+        top5.map(function(entry, i) {
+          var art = entry[0]; var g = entry[1];
+          var topRc = Object.entries(g.reasons).sort(function(a,b){return b[1]-a[1];})[0];
+          var pct = Math.round((topRc[1]/g.total)*1000)/10;
+          var shortArt = art.length > 22 ? art.slice(0,22)+'...' : art;
+          var shortRc = topRc[0].length > 28 ? topRc[0].slice(0,28)+'...' : topRc[0];
+          var bg = i % 2 === 0 ? '#fff' : '#f8f9fb';
+          return '<tr style="background:' + bg + ';">' +
+            '<td style="padding:4px 6px;border-bottom:1px solid #edf1f5;color:#22384b;font-weight:700;">' + shortArt + '</td>' +
+            '<td style="padding:4px 6px;border-bottom:1px solid #edf1f5;color:#003B71;font-weight:800;text-align:right;">' + g.total + '</td>' +
+            '<td style="padding:4px 6px;border-bottom:1px solid #edf1f5;color:#60758a;font-weight:600;">' + shortRc + '</td>' +
+            '<td style="padding:4px 6px;border-bottom:1px solid #edf1f5;color:#60758a;font-weight:700;text-align:right;">' + pct + '%</td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody></table>';
+    }
+  }
+}
+
+let top10BarChartInstance = null;
+function renderTop10BarChart(){
+  const rows = filteredRows();
+  const articleMap = {};
+  rows.forEach(r => {
+    const key = r.article || 'Unknown';
+    articleMap[key] = articleMap[key] || {completed:0};
+    if (isActioned(r.actionStatus)) articleMap[key].completed++;
+  });
+  const top10 = Object.entries(articleMap).sort((a,b)=>b[1].completed-a[1].completed).slice(0,10);
+  const ctx = document.getElementById('top10BarChart');
+  if (!ctx) return;
+  if (top10BarChartInstance) top10BarChartInstance.destroy();
+  top10BarChartInstance = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: top10.map(([art]) => art.length > 28 ? art.slice(0,28)+'...' : art),
+      datasets:[{ data: top10.map(([,g])=>g.completed), backgroundColor:'#123a63', borderRadius:3 }],
+    },
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:10}},grid:{display:false}},
+        y:{ticks:{font:{size:9.5}},grid:{display:false}},
+      },
+    },
+  });
+}
+
+function renderManagerFollowUp(){
+  const rows = filteredRows();
+  const managerMap = {};
+  const regionMap = {};
+  rows.forEach(r => {
+    if (isPending(r.actionStatus)){
+      const m = r.manager || 'Unassigned';
+      managerMap[m] = (managerMap[m]||0) + 1;
+      const reg = r.region || 'Unknown';
+      regionMap[reg] = (regionMap[reg]||0) + 1;
+    }
+  });
+  const mgrs = Object.entries(managerMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const regs = Object.entries(regionMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const pendingList = document.getElementById('managerPendingList');
+  const regionList = document.getElementById('managerRegionList');
+  if (!pendingList || !regionList) return;
+  pendingList.innerHTML = mgrs.length === 0 ? `<div class="muted" style="font-size:11px;padding:8px 0;">No pending tasks.</div>` :
+    mgrs.map(([name, count], i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:11.5px;font-weight:600;">${i+1}. ${name}</span>
+      <span style="background:var(--orange-500);color:#fff;border-radius:20px;padding:2px 9px;font-size:10.5px;font-weight:700;">${count}</span>
+    </div>`).join('');
+  regionList.innerHTML = regs.length === 0 ? `<div class="muted" style="font-size:11px;padding:8px 0;">No pending tasks.</div>` :
+    regs.map(([reg, count], i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:11.5px;font-weight:600;">${i+1}. ${reg}</span>
+      <span style="background:var(--orange-500);color:#fff;border-radius:20px;padding:2px 9px;font-size:10.5px;font-weight:700;">${count}</span>
+    </div>`).join('');
+}
+
+function safeId(s){ return s.replace(/[^a-zA-Z0-9]/g, ''); }
+const sparkChartInstances = {};
+
+function renderTaskBreakdown(){
+  const byWeek = weeklyClassificationTotals();
+  const weeks = Object.keys(byWeek).sort();
+  const currentRows = rowsIgnoring('classification');
+  const totalForPct = currentRows.length;
+  const currentCounts = {};
+  currentRows.forEach(r => { currentCounts[r.classification] = (currentCounts[r.classification]||0)+1; });
+
+  const prevWeekKey = getPrevWeekKey();
+  const prevCounts = prevWeekKey && byWeek[prevWeekKey] ? byWeek[prevWeekKey] : null;
+
+  const classes = Object.keys(CLASS_HEX);
+  const grid = document.getElementById('taskBreakdownGrid');
+  if (!grid) return;
+
+  // Calculate actioned counts per classification
+  const filteredAll = filteredRows();
+  const actionedByClass = {};
+  filteredAll.forEach(r => {
+    if (isActioned(r.actionStatus)) {
+      actionedByClass[r.classification] = (actionedByClass[r.classification]||0)+1;
+    }
+  });
+
+  const clsCssClass = {
+    'Optimal':'c-optimal','Overstock':'c-overstock','Understock':'c-understock',
+    'Out of Stock':'c-oos','No Sales (Idle Stock)':'c-idle','No Sales (Dead Stock)':'c-idle','Negative SOH':'c-negative',
+  };
+  grid.innerHTML = classes.map(cls => `
+    <div class="spark-card ${clsCssClass[cls]||''}">
+      <div class="spark-label">${cls}</div>
+      <div class="spark-value" id="spark-value-${safeId(cls)}">0</div>
+      <div class="spark-pct" id="spark-pct-${safeId(cls)}"></div>
+      <div class="spark-delta" id="spark-delta-${safeId(cls)}"></div>
+      <div class="spark-canvas-wrap" style="height:0;"></div>
+      <div class="spark-footer" id="spark-footer-${safeId(cls)}"></div>
+    </div>
+  `).join('');
+
+  classes.forEach(cls => {
+    const id = safeId(cls);
+    const count = currentCounts[cls] || 0;
+    const pct = totalForPct ? Math.round((count/totalForPct)*1000)/10 : 0;
+    const actioned = actionedByClass[cls] || 0;
+    const actionRate = count ? Math.round((actioned/count)*1000)/10 : 0;
+
+    document.getElementById(`spark-value-${id}`).textContent = count.toLocaleString();
+    document.getElementById(`spark-pct-${id}`).textContent = `${pct}% of lines`;
+
+    // Delta
+    const deltaEl = document.getElementById(`spark-delta-${id}`);
+    if (prevCounts !== null) {
+      const prev = prevCounts[cls] || 0;
+      const diff = count - prev;
+      if (diff === 0) { deltaEl.innerHTML = `<span style="color:var(--muted);">flat vs prior</span>`; }
+      else {
+        const up = diff > 0;
+        const isGood = cls === 'Optimal' ? up : !up;
+        const color = isGood ? 'var(--c-optimal)' : 'var(--c-oos)';
+        deltaEl.innerHTML = `<span style="color:${color};">${up?'↑':'↓'} ${Math.abs(diff).toLocaleString()} vs prior</span>`;
+      }
+    }
+
+    // Footer: actioned count + rate badge
+    const footerEl = document.getElementById(`spark-footer-${id}`);
+    if (footerEl) {
+      const badgeCls = actionRate >= 10 ? 'ok' : actionRate >= 5 ? 'warn' : 'bad';
+      footerEl.innerHTML = `<span>${actioned.toLocaleString()} completed</span><span class="spark-badge ${badgeCls}">${actionRate}%</span>`;
+    }
+
+    // Sparkline
+    const data = weeks.map(w => byWeek[w][cls] || 0);
+    const ctx = document.getElementById(`spark-canvas-${id}`);
+    if (!ctx) return;
+    if (sparkChartInstances[id]) sparkChartInstances[id].destroy();
+    sparkChartInstances[id] = new Chart(ctx, {
+      type: 'line',
+      data: { labels: weeks, datasets: [{ data, borderColor: CLASS_HEX[cls], backgroundColor: CLASS_HEX[cls]+'18', fill:true, tension:0.3, pointRadius:0, borderWidth:1.8 }] },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{
+          enabled:true, backgroundColor:'rgba(255,255,255,0.95)', borderColor:'#dbe3ec', borderWidth:1,
+          titleColor:'#8497a8', bodyColor:'#0f1f2e', titleFont:{size:9,weight:'400'}, bodyFont:{size:10,weight:'700'},
+          padding:6, cornerRadius:5, displayColors:false, yAlign:'bottom',
+          callbacks:{ title:(i)=>'Wk '+i[0].label.replace('week_',''), label:(i)=>i.raw.toLocaleString()+' lines' }
+        }},
+        scales:{ x:{display:false}, y:{display:false} },
+        layout:{ padding:{top:2,left:2,right:2} },
+      },
+    });
+  });
+}
+
+
+let statusChartInstance = null;
+function renderStatusChart(){
+  const weekRows = filteredRows();
+  const counts = {};
+  weekRows.forEach(r => { const s = r.actionStatus || 'Unknown'; counts[s] = (counts[s]||0) + 1; });
+  const labels = Object.keys(counts);
+  const data = labels.map(l => counts[l]);
+  const colors = labels.map(statusColor);
+  const ctx = document.getElementById('statusChart');
+  if (!ctx) return;
+  if (statusChartInstance) statusChartInstance.destroy();
+  statusChartInstance = new Chart(ctx, {
+    type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10.5 }, boxWidth: 10 } } }, cutout: '60%' },
+  });
+}
+
+function classBadge(cls){ return `<span class="badge" style="background:${CLASS_HEX[cls] || '#a8b3bf'}">${cls || 'Unclassified'}</span>`; }
+function statusBadge(s){ return `<span class="badge" style="background:${statusColor(s||'Unknown')}">${s || 'Unknown'}</span>`; }
+
+function renderTable(){
+  const filtered = filteredRows();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+  if (state.page > totalPages) state.page = totalPages;
+  const start = (state.page - 1) * state.pageSize;
+  const pageRows = filtered.slice(start, start + state.pageSize);
+  const tbody = document.getElementById('tableBody');
+
+  if (pageRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13" class="muted" style="padding:24px;text-align:center;">No rows match these filters.</td></tr>`;
+  } else {
+    tbody.innerHTML = pageRows.map(r => {
+      const imgs = [
+        r.image ? `<a class="img-link" href="${r.image}" target="_blank">Image</a>` : '',
+        r.image2 ? `<a class="img-link" href="${r.image2}" target="_blank">Image2</a>` : '',
+              ].filter(Boolean).join(' \u00b7 ') || '<span class="muted">\u2014</span>';
+      return `<tr>
+        <td>${r.week||''}</td><td>${r.client||''}</td><td>${r.banner||''}</td><td>${r.region||''}</td>
+        <td>${r.store||''}</td><td>${r.article||''}</td><td>${r.dcSoh ?? ''}</td><td>${r.storeSoh ?? ''}</td>
+        <td>${classBadge(r.classification)}</td><td>${r.action||''}</td><td>${statusBadge(r.actionStatus)}</td>
+        <td>${r.rep||''}</td><td>${r.feedback||'<span class="muted">\u2014</span>'}</td><td>${r.actionComment||'<span class="muted">\u2014</span>'}</td><td>${imgs}</td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('pagerInfo').textContent =
+    filtered.length ? `Showing ${start+1}-${Math.min(start+state.pageSize, filtered.length)} of ${filtered.length.toLocaleString()} rows` : '';
+  document.getElementById('prevPage').disabled = state.page <= 1;
+  document.getElementById('nextPage').disabled = state.page >= totalPages;
+  document.getElementById('detailTag').textContent = `${filtered.length.toLocaleString()} rows \u00b7 week ${state.week}`;
+}
+
+function renderWeekNotice(){ document.getElementById('weekNotice').innerHTML = ''; }
+
+// ---------- Banner / Region analytics ----------
+let bannerChartInstance = null;
+let regionChartInstance = null;
+
+function rowsIgnoring(filterKey){
+  // Same as filteredRows() but skip one specific filter dimension, so the
+  // "by banner" chart isn't collapsed to a single bar when a banner is selected.
+  return currentWeekRows().filter(r => {
+    if (filterKey !== 'client' && state.client !== '__all__' && r.client !== state.client) return false;
+    if (filterKey !== 'banner' && state.banner !== '__all__' && r.banner !== state.banner) return false;
+    if (filterKey !== 'region' && state.region !== '__all__' && r.region !== state.region) return false;
+    if (filterKey !== 'classification' && state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (filterKey !== 'status' && state.status !== '__all__' && r.actionStatus !== state.status) return false;
+    return true;
+  });
+}
+
+function groupCount(rows, keyFn){
+  const counts = {};
+  rows.forEach(r => { const k = keyFn(r) || 'Unknown'; counts[k] = (counts[k]||0) + 1; });
+  return counts;
+}
+
+function renderBannerRegionAnalytics(){
+  const bannerRows = rowsIgnoring('banner');
+  const regionRows = rowsIgnoring('region');
+
+  const bannerCounts = groupCount(bannerRows, r => r.banner);
+  const bannerLabels = Object.keys(bannerCounts).sort((a,b) => bannerCounts[b]-bannerCounts[a]).slice(0, 15);
+  const ctxB = document.getElementById('bannerChart');
+  if (ctxB) {
+    if (bannerChartInstance) bannerChartInstance.destroy();
+    bannerChartInstance = new Chart(ctxB, {
+      type: 'bar',
+      data: { labels: bannerLabels, datasets: [{ data: bannerLabels.map(l => bannerCounts[l]), backgroundColor: '#FF6C0E' }] },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { font: { size: 10.5 } } }, y: { ticks: { font: { size: 10.5 } } } } },
+    });
+  }
+  const bannerTag = document.getElementById('bannerAnalyticsTag');
+  if (bannerTag) bannerTag.textContent = `top ${bannerLabels.length} \u00b7 week ${state.week}`;
+
+  const regionCounts = groupCount(regionRows, r => r.region);
+  const regionLabels = Object.keys(regionCounts).sort((a,b) => regionCounts[b]-regionCounts[a]);
+  const ctxR = document.getElementById('regionChart');
+  if (ctxR) {
+    if (regionChartInstance) regionChartInstance.destroy();
+    regionChartInstance = new Chart(ctxR, {
+      type: 'bar',
+      data: { labels: regionLabels, datasets: [{ data: regionLabels.map(l => regionCounts[l]), backgroundColor: '#123a63' }] },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { font: { size: 10.5 } } }, y: { ticks: { font: { size: 10.5 } } } } },
+    });
+  }
+  const regionTag = document.getElementById('regionAnalyticsTag');
+  if (regionTag) regionTag.textContent = `week ${state.week}`;
+
+  // Banner x Region breakdown table (optional - only rendered if the element exists)
+  const tbody = document.getElementById('bannerRegionTableBody');
+  if (!tbody) return;
+  const rows = filteredRows();
+  const grid = {};
+  rows.forEach(r => {
+    const key = `${r.banner||'Unknown'}\u0001${r.region||'Unknown'}`;
+    grid[key] = grid[key] || { total: 0, oos: 0, over: 0, under: 0, noSales: 0, optimal: 0 };
+    const g = grid[key];
+    g.total++;
+    if (r.classification === 'Out of Stock') g.oos++;
+    else if (r.classification === 'Overstock') g.over++;
+    else if (r.classification === 'Understock') g.under++;
+    else if (r.classification === 'No Sales (Idle Stock)' || r.classification === 'No Sales (Dead Stock)') g.noSales++;
+    else if (r.classification === 'Optimal') g.optimal++;
+  });
+  const entries = Object.entries(grid).sort((a,b) => b[1].total - a[1].total).slice(0, 100);
+  if (entries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted" style="padding:20px;text-align:center;">No rows match these filters.</td></tr>`;
+  } else {
+    tbody.innerHTML = entries.map(([key, g]) => {
+      const [banner, region] = key.split('\u0001');
+      return `<tr><td>${banner}</td><td>${region}</td><td>${g.total.toLocaleString()}</td>
+        <td>${g.oos.toLocaleString()}</td><td>${g.over.toLocaleString()}</td><td>${g.under.toLocaleString()}</td>
+        <td>${g.noSales.toLocaleString()}</td><td>${g.optimal.toLocaleString()}</td></tr>`;
+    }).join('');
+  }
+}
+
+function renderTop10Actioned(){
+  const rows = filteredRows();
+  const articleMap = {};
+  rows.forEach(r => {
+    const key = r.article || 'Unknown';
+    articleMap[key] = articleMap[key] || {completed:0, pending:0, issues:{}};
+    if (isActioned(r.actionStatus)) articleMap[key].completed++;
+    else articleMap[key].pending++;
+    const cls = r.classification || 'Unknown';
+    articleMap[key].issues[cls] = (articleMap[key].issues[cls]||0) + 1;
+  });
+  const sorted = Object.entries(articleMap).sort((a,b) => b[1].completed - a[1].completed).slice(0,10);
+  const container = document.getElementById('top10ActionedBody');
+  if (!container) return;
+  const clsColors = {'Out of Stock':'#c93b3b','Overstock':'#d9a72e','Understock':'#2c8fae','No Sales (Idle Stock)':'#7c8aa0','Negative SOH':'#9b2fae'};
+  if (sorted.length === 0) {
+    container.closest('tbody') ? container.innerHTML = `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--text-400);">No rows match these filters.</td></tr>` : container.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-400);">No rows match these filters.</div>`;
+    return;
+  }
+  const maxCompleted = sorted[0][1].completed || 1;
+  // Render as inline bar rows, not a table
+  const parentEl = container.closest('tbody') ? container.closest('table').parentNode : container;
+  const wrapId = 'top10InlineBars';
+  let wrap = document.getElementById(wrapId);
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = wrapId;
+    parentEl.appendChild(wrap);
+  }
+  wrap.innerHTML = sorted.map(([art, g], i) => {
+    const pct = Math.round((g.completed / maxCompleted) * 100);
+    const topIssue = Object.entries(g.issues).sort((a,b)=>b[1]-a[1])[0];
+    const col = '#003B71';
+    return `<div class="top10-inline">
+      <div class="top10-article" title="${art}">${i+1}. ${art}</div>
+      <div class="top10-bar-row">
+        <div class="top10-track"><div class="top10-fill" style="width:${pct}%;background:${col};"></div></div>
+        <div class="top10-num">${g.completed}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Hide the original table if it exists
+  const tbl = container.closest('table');
+  if (tbl) tbl.style.display = 'none';
+
+  const t10tag = document.getElementById('top10ActionedTag');
+  if(t10tag) t10tag.textContent = `week ${state.week}`;
+}
+
+function renderTop10ByReasonCode(){
+  const rows = filteredRows();
+  const articleMap = {};
+  rows.forEach(r => {
+    const rc = r.reasonCode;
+    if (!rc) return; // skip rows with no reason code
+    const key = r.article || 'Unknown';
+    articleMap[key] = articleMap[key] || {total:0, reasons:{}};
+    articleMap[key].total++;
+    articleMap[key].reasons[rc] = (articleMap[key].reasons[rc]||0) + 1;
+  });
+  const totalAll = rows.length || 1;
+  const sorted = Object.entries(articleMap).sort((a,b) => b[1].total - a[1].total).slice(0,10);
+  const body = document.getElementById('top10ReasonBody');
+  if (!body) return;
+  if (sorted.length === 0) { body.innerHTML = `<tr><td colspan="5" class="muted" style="padding:16px;text-align:center;">No rows match these filters.</td></tr>`; return; }
+  body.innerHTML = sorted.map(([art, g], i) => {
+    const topRc = Object.entries(g.reasons).sort((a,b)=>b[1]-a[1])[0];
+    const pct = Math.round((g.total/totalAll)*1000)/10;
+    return `<tr><td>${i+1}</td><td>${art}</td><td>${topRc?topRc[0]:''}</td><td>${g.total}</td><td>${pct}%</td></tr>`;
+  }).join('');
+}
+
+function renderWhatWasWrong(){
+  const rows = filteredRows();
+  const catMap = {};
+  rows.forEach(r => {
+    const cat = r.category || 'Uncategorised';
+    catMap[cat] = catMap[cat] || {oos:0,over:0,under:0,noSales:0,neg:0,total:0};
+    catMap[cat].total++;
+    const cls = r.classification || '';
+    if (cls==='Out of Stock') catMap[cat].oos++;
+    else if (cls==='Overstock') catMap[cat].over++;
+    else if (cls==='Understock') catMap[cat].under++;
+    else if (cls.includes('No Sales')) catMap[cat].noSales++;
+    else if (cls==='Negative SOH') catMap[cat].neg++;
+  });
+  const body = document.getElementById('whatWrongBody');
+  if (!body) return;
+  const sorted = Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+  if (sorted.length === 0) { body.innerHTML = `<tr><td colspan="7" class="muted" style="padding:16px;text-align:center;">No data.</td></tr>`; return; }
+  const totals = {oos:0,over:0,under:0,noSales:0,neg:0,total:0};
+  body.innerHTML = sorted.map(([cat, g]) => {
+    totals.oos+=g.oos;totals.over+=g.over;totals.under+=g.under;totals.noSales+=g.noSales;totals.neg+=g.neg;totals.total+=g.total;
+    return `<tr><td>${cat}</td><td>${g.oos||''}</td><td>${g.over||''}</td><td>${g.under||''}</td><td>${g.noSales||''}</td><td>${g.neg||''}</td><td><strong>${g.total}</strong></td></tr>`;
+  }).join('') + `<tr style="font-weight:700;border-top:2px solid var(--border);"><td>Total</td><td>${totals.oos}</td><td>${totals.over}</td><td>${totals.under}</td><td>${totals.noSales}</td><td>${totals.neg}</td><td>${totals.total}</td></tr>`;
+}
+
+
+
+// ---------- Rep & Manager Performance ----------
+function isActioned(status){
+  return status === 'Completed' || status === 'Fixed' || (status||'').includes('Actioned');
+}
+function isPending(status){ return (status||'').includes('Pending'); }
+function isEscalated(status){ return (status||'').includes('Escalated'); }
+
+function renderSkuInsights(){
+  const rows = filteredRows();
+  const skuGroups = {};
+  rows.forEach(r => {
+    const key = r.article || 'Unknown';
+    skuGroups[key] = skuGroups[key] || { total: 0, oos: 0, over: 0, under: 0, noSales: 0, optimal: 0, barcode: r.barcode, actions: {} };
+    const g = skuGroups[key];
+    g.total++;
+    if (r.classification === 'Out of Stock') g.oos++;
+    else if (r.classification === 'Overstock') g.over++;
+    else if (r.classification === 'Understock') g.under++;
+    else if (r.classification === 'No Sales (Idle Stock)' || r.classification === 'No Sales (Dead Stock)') g.noSales++;
+    else if (r.classification === 'Optimal') g.optimal++;
+    const a = r.action || 'Unknown';
+    g.actions[a] = (g.actions[a]||0) + 1;
+  });
+
+  const skuEntries = Object.entries(skuGroups);
+  const problemCount = (g) => g.oos + g.over + g.under + g.noSales;
+
+  // KPI cards
+  const totalSkus = skuEntries.length;
+  const problemSkus = skuEntries.filter(([,g]) => problemCount(g) > 0).length;
+  const reasonCounts = {};
+  rows.forEach(r => { const rc = r.reasonCode || 'None'; reasonCounts[rc] = (reasonCounts[rc]||0) + 1; });
+  const topReason = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('skuKpiRow').innerHTML = [
+    { label: 'SKUs tracked', value: totalSkus.toLocaleString(), cls: '' },
+    { label: 'SKUs with issues', value: problemSkus.toLocaleString(), cls: 'c-overstock' },
+    { label: 'Total lines', value: rows.length.toLocaleString(), cls: '' },
+    { label: 'Top reason code', value: topReason ? topReason[0] : '\u2014', cls: 'c-oos' },
+  ].map(c => `<div class="kpi-card ${c.cls}"><div class="label">${c.label}</div><div class="value" style="font-size:18px;">${c.value}</div></div>`).join('');
+
+  // Top problem SKUs chart
+  const topSkus = skuEntries.map(([name, g]) => [name, problemCount(g)]).sort((a,b)=>b[1]-a[1]).slice(0, 15);
+  const ctx = document.getElementById('topSkuChart');
+  if (topSkuChartInstance) topSkuChartInstance.destroy();
+  topSkuChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: topSkus.map(s=>s[0]), datasets: [{ data: topSkus.map(s=>s[1]), backgroundColor: '#c93b3b' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display:false } },
+      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 9.5 } } } } },
+  });
+  const tst = document.getElementById('topSkuTag'); if(tst) tst.textContent = `top ${topSkus.length} \u00b7 week ${state.week}`;
+
+  // SKU by reason code chart
+  const reasonLabels = Object.keys(reasonCounts).sort((a,b)=>reasonCounts[b]-reasonCounts[a]).slice(0, 12);
+  const ctx2 = document.getElementById('reasonCodeChart');
+  if (reasonCodeChartInstance) reasonCodeChartInstance.destroy();
+  reasonCodeChartInstance = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: reasonLabels, datasets: [{ data: reasonLabels.map(l=>reasonCounts[l]), backgroundColor: '#FF6C0E' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display:false } },
+      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } },
+  });
+
+  // SKU drilldown table
+  let filtered = skuEntries;
+  if (skuSearch) {
+    const s = skuSearch.toLowerCase();
+    filtered = filtered.filter(([name, g]) => name.toLowerCase().includes(s) || String(g.barcode||'').includes(s));
+  }
+  filtered = filtered.sort((a,b) => problemCount(b[1]) - problemCount(a[1])).slice(0, 200);
+  const body = document.getElementById('skuDrilldownBody');
+  if (filtered.length === 0) {
+    body.innerHTML = `<tr><td colspan="9" class="muted" style="padding:20px;text-align:center;">No SKUs match these filters.</td></tr>`;
+  } else {
+    body.innerHTML = filtered.map(([name, g]) => {
+      const topAction = Object.entries(g.actions).sort((a,b)=>b[1]-a[1])[0];
+      return `<tr><td>${name}</td><td>${g.barcode||''}</td><td>${g.total.toLocaleString()}</td>
+        <td>${g.oos}</td><td>${g.over}</td><td>${g.under}</td><td>${g.noSales}</td><td>${g.optimal}</td>
+        <td>${topAction ? topAction[0] : ''}</td></tr>`;
+    }).join('');
+  }
+  const sdt = document.getElementById('skuDrilldownTag'); if(sdt) sdt.textContent = `${filtered.length.toLocaleString()} of ${totalSkus.toLocaleString()} SKUs`;
+}
+
+// ---------- Store Deep Dive ----------
+let storeSelectorPopulated = false;
+
+function populateStoreSelector(){
+  const sel = document.getElementById('storeSelector');
+  const rows = filteredRows();
+  const stores = [...new Set(rows.map(r => r.store))].filter(Boolean).sort();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Select a store...</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (stores.includes(current)) sel.value = current;
+}
+
+function renderStoreDeepDive(){
+  populateStoreSelector();
+  const sel = document.getElementById('storeSelector');
+  const storeName = sel.value;
+  const content = document.getElementById('storeDeepDiveContent');
+  if (!storeName) {
+    content.innerHTML = `<div class="panel muted" style="text-align:center;padding:30px;">Select a store above to see its task list and images.</div>`;
+    return;
+  }
+  const rows = filteredRows().filter(r => r.store === storeName);
+  const images = [];
+  rows.forEach(r => {
+    [['image', r.image], ['image2', r.image2]].forEach(([label, url]) => {
+      if (url) images.push({ url, label, article: r.article });
+    });
+  });
+
+  content.innerHTML = `
+    <div class="panel">
+      <h2>${storeName} \u2014 task list <span class="tag">${rows.length.toLocaleString()} lines \u00b7 week ${state.week}</span></h2>
+      <div class="table-scroll" style="max-height:420px;">
+        <table>
+          <thead><tr><th>Article</th><th>DC SOH</th><th>Store SOH</th><th>Classification</th><th>Action</th><th>Status</th><th>Rep</th></tr></thead>
+          <tbody>
+            ${rows.length === 0 ? `<tr><td colspan="7" class="muted" style="padding:20px;text-align:center;">No rows for this store under current filters.</td></tr>` :
+              rows.map(r => `<tr><td>${r.article||''}</td><td>${r.dcSoh??''}</td><td>${r.storeSoh??''}</td>
+                <td>${classBadge(r.classification)}</td><td>${r.action||''}</td><td>${statusBadge(r.actionStatus)}</td><td>${r.rep||''}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Image gallery <span class="tag">${images.length} image${images.length===1?'':'s'}</span></h2>
+      ${images.length === 0 ? `<div class="muted" style="padding:20px;text-align:center;">No images attached for this store.</div>` :
+        `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
+          ${images.map(img => `
+            <a href="${img.url}" target="_blank" style="display:block;border:1px solid var(--border);border-radius:8px;padding:8px;text-decoration:none;color:var(--text-900);font-size:11px;">
+              <div style="background:var(--bg);border-radius:6px;height:90px;display:flex;align-items:center;justify-content:center;color:var(--text-400);font-size:10px;margin-bottom:6px;">${img.label}</div>
+              <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${img.article||''}</div>
+            </a>
+          `).join('')}
+        </div>`}
+    </div>
+  `;
+}
+
+// ---------- CSV export ----------
+function exportCsv(){
+  const rows = filteredRows();
+  if (rows.length === 0) { alert('No rows to export under current filters.'); return; }
+  const cols = ['week','client','banner','region','store','article','barcode','dcSoh','storeSoh','classification','action','actionStatus','rep','manager','feedback','actionComment'];
+  const escape = (v) => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[,"\n]/.test(s) ? `"${s}"` : s;
+  };
+  const lines = [cols.join(',')];
+  rows.forEach(r => lines.push(cols.map(c => escape(r[c])).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stockfix_export_${state.week}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+let feedbackPage = 1;
+const FEEDBACK_PAGE_SIZE = 20;
+
+function feedbackRows(){
+  return filteredRows().filter(r => (r.feedback && r.feedback.trim()) || (r.actionComment && r.actionComment.trim()));
+}
+
+function renderFeedbackFeed(){
+  const rows = feedbackRows();
+  const totalPages = Math.max(1, Math.ceil(rows.length / FEEDBACK_PAGE_SIZE));
+  if (feedbackPage > totalPages) feedbackPage = totalPages;
+  const start = (feedbackPage - 1) * FEEDBACK_PAGE_SIZE;
+  const pageRows = rows.slice(start, start + FEEDBACK_PAGE_SIZE);
+
+  const list = document.getElementById('feedbackList');
+  if (pageRows.length === 0) {
+    list.innerHTML = `<div class="muted" style="padding:20px;text-align:center;">No feedback or comments match these filters.</div>`;
+  } else {
+    list.innerHTML = pageRows.map(r => `
+      <div class="feedback-item">
+        <div class="fb-head">
+          <span class="fb-store">${r.store||''} \u00b7 ${r.article||''}</span>
+          <span>${r.rep||'Unknown rep'} \u00b7 ${r.week||''} \u00b7 ${statusBadge(r.actionStatus)}</span>
+        </div>
+        <div class="fb-body">
+          ${r.feedback ? `<div><span class="fb-label">Feedback</span>${r.feedback}</div>` : ''}
+          ${r.actionComment ? `<div style="margin-top:4px;"><span class="fb-label">Action taken</span>${r.actionComment}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('feedbackPagerInfo').textContent =
+    rows.length ? `Showing ${start+1}-${Math.min(start+FEEDBACK_PAGE_SIZE, rows.length)} of ${rows.length.toLocaleString()} comments` : '';
+  document.getElementById('feedbackPrevPage').disabled = feedbackPage <= 1;
+  document.getElementById('feedbackNextPage').disabled = feedbackPage >= totalPages;
+  const fbt = document.getElementById('feedbackTag'); if(fbt) fbt.textContent = `${rows.length.toLocaleString()} comments \u00b7 week ${state.week}`;
+}
+
+function safeRender(name, fn){
+  try { fn(); } catch(e){ console.error('[StockFix] Error in ' + name + ':', e); }
+}
+// =========================================================================
+// REP & MANAGER PERFORMANCE TAB
+// =========================================================================
+
+let regionActionsChartInstance = null;
+let top5ManagersChartInstance = null;
+let top5RepsChartInstance = null;
+let feedbackByClientChartInstance = null;
+
+function renderRepManagerTab(){
+  const rows = filteredRows();
+  if (!rows || rows.length === 0) return;
+
+  // ---- KPI Row ----
+  const totalLines = rows.length;
+  const completedRows = rows.filter(r => isActioned(r.actionStatus));
+  const actioned = completedRows.length;
+  const allStores = new Set(rows.map(r => r.store).filter(Boolean));
+  const actionedStores = new Set(completedRows.map(r => r.store).filter(Boolean));
+  const pctStoresActioned = allStores.size ? Math.round((actionedStores.size / allStores.size) * 1000) / 10 : 0;
+  const pctArticlesActioned = totalLines ? Math.round((actioned / totalLines) * 1000) / 10 : 0;
+  const managers = new Set(rows.map(r => r.manager).filter(Boolean));
+  const reps = new Set(rows.map(r => r.rep).filter(Boolean));
+
+  const kpiEl = document.getElementById('rmKpiRow');
+  if (kpiEl) {
+    const cards = [
+      { emoji: '🏬', bg: '#e8f4f8', label: 'Stores', value: allStores.size.toLocaleString() },
+      { emoji: '✅', bg: '#e8f7ef', label: 'Stores Actioned', value: actionedStores.size.toLocaleString() },
+      { emoji: '📊', bg: '#f4ecf7', label: '% Stores Actioned', value: pctStoresActioned + '%' },
+      { emoji: '📋', bg: '#eef4fb', label: 'Action Items', value: totalLines.toLocaleString() },
+      { emoji: '🎯', bg: '#fff0e8', label: 'Articles Actioned', value: actioned.toLocaleString() },
+      { emoji: '📈', bg: '#fdebd0', label: '% Articles Actioned', value: pctArticlesActioned + '%' },
+    ];
+    kpiEl.innerHTML = cards.map(c => `
+      <div class="icon-kpi-card">
+        <div class="icon" style="background:${c.bg};">${c.emoji}</div>
+        <div>
+          <div class="kpi-label">${c.label}</div>
+          <div class="kpi-value">${c.value}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ---- Manager Leaderboard ----
+  const mgrMap = {};
+  rows.forEach(r => {
+    const m = r.manager || 'Unassigned';
+    const region = r.region || '';
+    if (!mgrMap[m]) mgrMap[m] = { region, total: 0, actioned: 0, stores: new Set(), storesActioned: new Set() };
+    mgrMap[m].total++;
+    if (r.store) mgrMap[m].stores.add(r.store);
+    if (isActioned(r.actionStatus)) {
+      mgrMap[m].actioned++;
+      if (r.store) mgrMap[m].storesActioned.add(r.store);
+    }
+  });
+  const mgrList = Object.entries(mgrMap).map(([name, g]) => ({
+    name, region: g.region,
+    pctStores: g.stores.size ? Math.round((g.storesActioned.size / g.stores.size) * 1000) / 10 : 0,
+    total: g.total, actioned: g.actioned,
+    pctArt: g.total ? Math.round((g.actioned / g.total) * 1000) / 10 : 0,
+  })).sort((a, b) => b.pctArt - a.pctArt);
+
+  const mgrBody = document.getElementById('managerLeaderboardBody');
+  if (mgrBody) {
+    mgrBody.innerHTML = mgrList.map(m => {
+      const rateCls = m.pctArt >= 20 ? '#d5f5e3' : m.pctArt >= 10 ? '#fff6df' : '#fdeeee';
+      const storesCls = m.pctStores >= 20 ? '#d5f5e3' : m.pctStores >= 10 ? '#fff6df' : '#fdeeee';
+      return `<tr>
+        <td style="font-weight:700;">${m.name}</td>
+        <td>${m.region}</td>
+        <td><span style="background:${storesCls};padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;">${m.pctStores}%</span></td>
+        <td>${m.total.toLocaleString()}</td>
+        <td><span style="background:${rateCls};padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;">${m.pctArt}%</span></td>
+      </tr>`;
+    }).join('');
+  }
+  const mgrTag = document.getElementById('managerLeaderboardTag');
+  if (mgrTag) mgrTag.textContent = `${mgrList.length} managers · week ${state.week}`;
+
+  // ---- Region bar chart ----
+  const regionMap = {};
+  rows.forEach(r => {
+    const reg = r.region || 'Unknown';
+    if (!regionMap[reg]) regionMap[reg] = { total: 0, actioned: 0, stores: new Set(), storesActioned: new Set() };
+    regionMap[reg].total++;
+    if (r.store) regionMap[reg].stores.add(r.store);
+    if (isActioned(r.actionStatus)) {
+      regionMap[reg].actioned++;
+      if (r.store) regionMap[reg].storesActioned.add(r.store);
+    }
+  });
+  const regions = Object.keys(regionMap).sort();
+  const pctStoresData = regions.map(r => regionMap[r].stores.size ? Math.round((regionMap[r].storesActioned.size / regionMap[r].stores.size) * 1000) / 10 : 0);
+  const pctArtData = regions.map(r => regionMap[r].total ? Math.round((regionMap[r].actioned / regionMap[r].total) * 1000) / 10 : 0);
+
+  const ctx1 = document.getElementById('regionActionsChart');
+  if (ctx1) {
+    if (regionActionsChartInstance) regionActionsChartInstance.destroy();
+    regionActionsChartInstance = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: regions,
+        datasets: [
+          { label: '% Stores Actioned', data: pctStoresData, backgroundColor: '#003B71', borderRadius: 3 },
+          { label: '% Articles Actioned', data: pctArtData, backgroundColor: '#FF6C0E', borderRadius: 3 },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + '%' } }
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 } },
+          y: { ticks: { font: { size: 9 }, callback: v => v + '%' }, max: Math.max(...pctStoresData, ...pctArtData) + 5 }
+        }
+      }
+    });
+    const legEl = document.getElementById('regionActionsLegend');
+    if (legEl) legEl.innerHTML = `
+      <span><span style="display:inline-block;width:10px;height:10px;background:#003B71;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>% Stores Actioned</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#FF6C0E;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>% Articles Actioned</span>`;
+  }
+
+  // ---- Top 5 Managers ----
+  const top5Mgr = mgrList.slice(0, 5);
+  const ctx2 = document.getElementById('top5ManagersChart');
+  if (ctx2) {
+    if (top5ManagersChartInstance) top5ManagersChartInstance.destroy();
+    top5ManagersChartInstance = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: top5Mgr.map(m => m.name.split(' ')[0] + '\n' + (m.name.split(' ')[1] || '')),
+        datasets: [{ data: top5Mgr.map(m => m.pctArt), backgroundColor: '#003B71', borderRadius: 3 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => c.raw + '% actioned' } },
+          datalabels: { display: false }
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 } } },
+          y: { ticks: { font: { size: 9 }, callback: v => v + '%' } }
+        }
+      }
+    });
+  }
+
+  // ---- Top 5 Reps ----
+  const repMap = {};
+  rows.forEach(r => {
+    const rep = r.rep || 'Unassigned';
+    if (!repMap[rep]) repMap[rep] = { total: 0, actioned: 0 };
+    repMap[rep].total++;
+    if (isActioned(r.actionStatus)) repMap[rep].actioned++;
+  });
+  const top5Reps = Object.entries(repMap)
+    .map(([name, g]) => ({ name, pct: g.total ? Math.round((g.actioned / g.total) * 1000) / 10 : 0, actioned: g.actioned }))
+    .sort((a, b) => b.actioned - a.actioned).slice(0, 5);
+
+  const ctx3 = document.getElementById('top5RepsChart');
+  if (ctx3) {
+    if (top5RepsChartInstance) top5RepsChartInstance.destroy();
+    top5RepsChartInstance = new Chart(ctx3, {
+      type: 'bar',
+      data: {
+        labels: top5Reps.map(r => r.name.split(' ').slice(0,2).join('\n')),
+        datasets: [{ data: top5Reps.map(r => r.actioned), backgroundColor: '#2c8fae', borderRadius: 3 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => c.raw + ' tasks actioned' } }
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 } } },
+          y: { ticks: { font: { size: 9 } } }
+        }
+      }
+    });
+  }
+
+  // ---- Feedback/Reason Code by Client ----
+  const clientMap = {};
+  completedRows.forEach(r => {
+    const client = r.client || 'Unknown';
+    clientMap[client] = (clientMap[client] || 0) + 1;
+  });
+  const topClients = Object.entries(clientMap).sort((a,b) => b[1]-a[1]).slice(0,12);
+
+  const ctx4 = document.getElementById('feedbackByClientChart');
+  if (ctx4) {
+    if (feedbackByClientChartInstance) feedbackByClientChartInstance.destroy();
+    feedbackByClientChartInstance = new Chart(ctx4, {
+      type: 'bar',
+      data: {
+        labels: topClients.map(c => c[0]),
+        datasets: [{ data: topClients.map(c => c[1]), backgroundColor: '#003B71', borderRadius: 3 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => c.raw + ' completed tasks' } }
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 } },
+          y: { ticks: { font: { size: 9 } } }
+        }
+      }
+    });
+  }
+
+  // ---- Region × Week RAG Table ----
+  renderRegionWeekTable();
+}
+
+function renderRegionWeekTable(){
+  const el = document.getElementById('data-region-week');
+  if (!el) return;
+  const data = JSON.parse(el.textContent);
+  const head = document.getElementById('regionWeekHead');
+  const body = document.getElementById('regionWeekBody');
+  if (!head || !body) return;
+
+  const allWeeks = [...new Set(data.map(r => r.week))].sort().slice(-4);
+  const allRegions = [...new Set(data.map(r => r.region))].sort();
+
+  const idx = {};
+  data.forEach(r => {
+    if (!idx[r.region]) idx[r.region] = {};
+    idx[r.region][r.week] = r;
+  });
+
+  function fmtWeek(w) {
+    const d = new Date(w + 'T00:00:00');
+    return 'Wk ' + d.toLocaleDateString('en-ZA', { day:'numeric', month:'short' });
+  }
+  function ragBg(pct) {
+    return pct >= 10 ? '#c8f7c5' : pct >= 5 ? '#fef9cd' : '#fcd6d7';
+  }
+
+  const th = 'style="background:var(--navy);color:#fff;padding:5px 8px;font-size:9px;font-weight:700;text-align:center;"';
+  const th2 = 'style="background:#0b2a4a;color:#fff;padding:3px 7px;font-size:8px;font-weight:600;text-align:center;"';
+
+  head.innerHTML =
+    '<tr><th ' + th + ' style="background:var(--navy);color:#fff;padding:5px 8px;text-align:left;">Region</th>' +
+    allWeeks.map(w => `<th colspan="2" ${th}>${fmtWeek(w)}</th>`).join('') + '</tr>' +
+    '<tr><th ' + th2 + '></th>' +
+    allWeeks.map(() => `<th ${th2}>% Stores</th><th ${th2}>% Articles</th>`).join('') + '</tr>';
+
+  body.innerHTML = allRegions.map((region, ri) => {
+    const rowBg = ri % 2 === 0 ? '#fff' : '#f8f9fb';
+    const cells = allWeeks.map(week => {
+      const d = idx[region] && idx[region][week];
+      if (!d || d.total === 0) return '<td style="text-align:center;color:#aaa;padding:4px 7px;">—</td><td style="text-align:center;color:#aaa;padding:4px 7px;">—</td>';
+      const pctArt = Math.round((d.actioned / d.total) * 1000) / 10;
+      const bg = ragBg(pctArt);
+      return `<td style="background:${bg};text-align:center;font-weight:700;font-size:10px;padding:4px 7px;">${pctArt}%</td>` +
+             `<td style="background:${bg};text-align:center;font-weight:700;font-size:10px;padding:4px 7px;">${pctArt}%</td>`;
+    }).join('');
+    return `<tr style="background:${rowBg};"><td style="font-weight:700;white-space:nowrap;padding:4px 8px;font-size:10px;border-bottom:1px solid var(--line);">${region}</td>${cells}</tr>`;
+  }).join('');
+}
+
+
+function rerenderAll(){
+  safeRender('iconKpiRow', renderIconKpiRow);
+  safeRender('taskBreakdown', renderTaskBreakdown);
+  safeRender('weekNotice', renderWeekNotice);
+  safeRender('table', renderTable);
+  safeRender('bannerRegionAnalytics', renderBannerRegionAnalytics);
+  safeRender('feedbackFeed', renderFeedbackFeed);
+  safeRender('repManagerPerformance', renderRepManagerPerformance);
+  safeRender('skuInsights', renderSkuInsights);
+  safeRender('storeDeepDive', renderStoreDeepDive);
+  safeRender('actionedPendingBars', renderActionedPendingBars);
+  safeRender('classificationSummaryTable', renderClassificationSummaryTable);
+  safeRender('actionTakenChart', renderActionTakenChart);
+  safeRender('top10BarChart', renderTop10BarChart);
+  safeRender('top10Actioned', renderTop10Actioned);
+  safeRender('top10ByReasonCode', renderTop10ByReasonCode);
+  safeRender('managerFollowUp', renderManagerFollowUp);
+  if (document.getElementById('tab-repmanager').classList.contains('active')) safeRender('rmKpiRow', renderRepManagerTab);
+}
+
+// Auto-resume session if already signed in (e.g. page refresh)
+(async () => {
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    try {
+      const token = await getGraphToken();
+      await loadAllData(token);
+    } catch (e) {
+      console.warn('Silent resume failed, user must sign in again', e);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
