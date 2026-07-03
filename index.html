@@ -234,7 +234,7 @@
   .impact-toolbar button{background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 9px;font-size:9px;font-weight:900;color:var(--navy);font-family:inherit;cursor:pointer;}
   .impact-toolbar button:hover{border-color:var(--orange);color:var(--orange);}
   .impact-loading{background:#fff7e6;border:1px solid #f0d28a;color:#7a5a05;border-radius:9px;padding:9px 12px;font-size:10px;font-weight:700;margin-bottom:8px;}
-  @media(max-width:900px){.impact-kpi-row{grid-template-columns:repeat(2,1fr)}.grid-2,.grid-2.bottom{grid-template-columns:1fr}.impact-outcome-row{grid-template-columns:90px 1fr 42px}}
+  @media(max-width:900px){#tab-actionimpact .impact-kpi-row{grid-template-columns:repeat(2,1fr)}#tab-actionimpact.grid-2,#tab-actionimpact .grid-2,#tab-actionimpact .grid-2.bottom{grid-template-columns:1fr}#tab-actionimpact .impact-outcome-row{grid-template-columns:90px 1fr 42px}}
 
 </style>
 </head>
@@ -883,8 +883,8 @@ function initUI() {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      if (btn.dataset.tab === 'leaderboard') renderLeaderboardTab();
-      if (btn.dataset.tab === 'actionimpact') renderActionImpact();
+      if (btn.dataset.tab === 'leaderboard') { try { renderLeaderboardTab(); } catch(e){ console.error('[StockFix] Leaderboard render failed:', e); } }
+      if (btn.dataset.tab === 'actionimpact') { try { renderActionImpact(); } catch(e){ console.error('[StockFix] Action Impact render failed:', e); } }
     });
   });
 
@@ -2278,7 +2278,7 @@ async function ensureImpactWeeksLoaded(){
     console.warn('Could not load full Action Impact history', e);
   } finally {
     impactLoadingInProgress = false;
-    if (document.getElementById('tab-actionimpact') && document.getElementById('tab-actionimpact').classList.contains('active')) renderActionImpact();
+    if (document.getElementById('tab-actionimpact') && document.getElementById('tab-actionimpact').classList.contains('active')) { try { renderActionImpact(); } catch(e){ console.error('[StockFix] Action Impact rerender failed:', e); } }
   }
 }
 function buildImpactPairs(){
@@ -2467,7 +2467,7 @@ function rerenderAll(){
   safeRender('top10ByReasonCode', renderTop10ByReasonCode);
   safeRender('managerFollowUp', renderManagerFollowUp);
   if (document.getElementById('tab-actionimpact') && document.getElementById('tab-actionimpact').classList.contains('active')) safeRender('actionImpact', renderActionImpact);
-  if (document.getElementById('tab-leaderboard') && document.getElementById('tab-leaderboard').classList.contains('active')) renderLeaderboardTab();
+  if (document.getElementById('tab-leaderboard') && document.getElementById('tab-leaderboard').classList.contains('active')) { try { renderLeaderboardTab(); } catch(e){ console.error('[StockFix] Leaderboard render failed:', e); } }
 }
 
 // =========================================================================
