@@ -469,6 +469,33 @@ const msalInstance = new msal.PublicClientApplication({
 
 const GRAPH_SCOPES = ["Sites.Read.All"];
 
+// Handle the redirect response when returning from Microsoft login
+msalInstance.handleRedirectPromise().then(async (result) => {
+  if (result) {
+    // Returned from a redirect login — load data
+    try {
+      const token = await getGraphToken();
+      await loadAllData(token);
+    } catch (e) {
+      console.error("Post-redirect data load failed:", e);
+      const errEl = document.getElementById("authError");
+      if (errEl) errEl.textContent = "Sign-in succeeded but data load failed. Please refresh.";
+    }
+  } else {
+    // Check if already signed in from a previous session
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      try {
+        const token = await getGraphToken();
+        await loadAllData(token);
+      } catch (e) {
+        // Silent token failed — show login screen
+        console.warn("Silent token failed, showing login screen:", e);
+      }
+    }
+  }
+}).catch(e => console.error("handleRedirectPromise error:", e));
+
 async function getGraphToken() {
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) throw new Error("Not signed in");
@@ -476,8 +503,9 @@ async function getGraphToken() {
     const result = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
     return result.accessToken;
   } catch (e) {
-    const result = await msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES });
-    return result.accessToken;
+    // Fall back to redirect (not popup) for token refresh
+    await msalInstance.acquireTokenRedirect({ scopes: GRAPH_SCOPES, account: accounts[0] });
+    return null; // Page will redirect — never reaches here
   }
 }
 
@@ -585,9 +613,8 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Signing in...";
   try {
-    await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
-    const token = await getGraphToken();
-    await loadAllData(token);
+    await msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+    // Page will redirect to Microsoft — handleRedirectPromise() handles the return
   } catch (e) {
     console.error(e);
     errEl.textContent = "Sign-in failed - please try again.";
