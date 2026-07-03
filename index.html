@@ -63,7 +63,8 @@
   /* KPI ROW */
   .icon-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
   .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:72px;}
-  .icon-kpi-card .icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:17px;background:#eef4fb;flex-shrink:0;}
+  .icon-kpi-card .icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#003B71;flex-shrink:0;color:#fff;}
+  .icon-kpi-card .icon svg{width:17px;height:17px;stroke:#fff;}
   .icon-kpi-card .kpi-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;}
   .icon-kpi-card .kpi-value{font-size:20px;font-weight:900;color:var(--navy);line-height:1.05;margin-top:2px;}
   .icon-kpi-card .kpi-delta{font-size:9px;color:#91a0ae;margin-top:2px;}
@@ -879,20 +880,28 @@ function renderIconKpiRow(){
     return `<span class="kpi-delta ${cls}">${arrow} ${val} vs prior</span>`;
   }
 
+  const SVG = {
+    list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+    check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    pct:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+    store: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    box:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+  };
   const cards = [
-    {emoji:'📋', bg:'#eef4fb', label:'Total Tasks', value:total.toLocaleString(), delta: dd(total, prev?.total, false, false)},
-    {emoji:'✅', bg:'#e8f7ef', label:'Completed', value:actioned.toLocaleString(), delta: dd(actioned, prev?.actioned, true, false)},
-    {emoji:'⏳', bg:'#fdebd0', label:'Pending', value:pending.toLocaleString(), delta: dd(pending, prev?.pending, false, false)},
-    {emoji:'📊', bg:'#f4ecf7', label:'Completion Rate', value:completionRate+'%', delta: dd(completionRate, prev?.rate, true, true)},
-    {emoji:'🏬', bg:'#e8f4f8', label:'Stores Impacted', value:stores.toLocaleString(), delta: dd(stores, prev?.stores, false, false)},
-    {emoji:'📦', bg:'#fff0e8', label:'SKUs Impacted', value:skus.toLocaleString(), delta: dd(skus, prev?.skus, false, false)},
+    {icon: SVG.list,  label:'Total Tasks',      value:total.toLocaleString(),    delta: dd(total, prev?.total, false, false)},
+    {icon: SVG.check, label:'Completed',         value:actioned.toLocaleString(), delta: dd(actioned, prev?.actioned, true, false)},
+    {icon: SVG.clock, label:'Pending',           value:pending.toLocaleString(),  delta: dd(pending, prev?.pending, false, false)},
+    {icon: SVG.pct,   label:'Completion Rate',   value:completionRate+'%',        delta: dd(completionRate, prev?.rate, true, true)},
+    {icon: SVG.store, label:'Stores Impacted',   value:stores.toLocaleString(),   delta: dd(stores, prev?.stores, false, false)},
+    {icon: SVG.box,   label:'SKUs Impacted',     value:skus.toLocaleString(),     delta: dd(skus, prev?.skus, false, false)},
   ];
 
   const el = document.getElementById('iconKpiRow');
   if (!el) return;
   el.innerHTML = cards.map(c => `
     <div class="icon-kpi-card">
-      <div class="icon" style="background:${c.bg};">${c.emoji}</div>
+      <div class="icon">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
         <div class="kpi-value">${c.value}</div>
@@ -1715,16 +1724,16 @@ function renderRepManagerTab(){
   const kpiEl = document.getElementById('rmKpiRow');
   if (kpiEl) {
     const cards = [
-      { emoji: '🏬', bg: '#e8f4f8', label: 'Stores', value: allStores.size.toLocaleString() },
-      { emoji: '✅', bg: '#e8f7ef', label: 'Stores Actioned', value: actionedStores.size.toLocaleString() },
-      { emoji: '📊', bg: '#f4ecf7', label: '% Stores Actioned', value: pctStoresActioned + '%' },
-      { emoji: '📋', bg: '#eef4fb', label: 'Action Items', value: totalLines.toLocaleString() },
-      { emoji: '🎯', bg: '#fff0e8', label: 'Articles Actioned', value: actioned.toLocaleString() },
-      { emoji: '📈', bg: '#fdebd0', label: '% Articles Actioned', value: pctArticlesActioned + '%' },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`, label: 'Stores', value: allStores.size.toLocaleString() },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`, label: 'Stores Actioned', value: actionedStores.size.toLocaleString() },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`, label: '% Stores Actioned', value: pctStoresActioned + '%' },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`, label: 'Action Items', value: totalLines.toLocaleString() },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`, label: 'Articles Actioned', value: actioned.toLocaleString() },
+      { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`, label: '% Articles Actioned', value: pctArticlesActioned + '%' },
     ];
     kpiEl.innerHTML = cards.map(c => `
       <div class="icon-kpi-card">
-        <div class="icon" style="background:${c.bg};">${c.emoji}</div>
+        <div class="icon">${c.icon}</div>
         <div>
           <div class="kpi-label">${c.label}</div>
           <div class="kpi-value">${c.value}</div>
@@ -1963,7 +1972,8 @@ function rerenderAll(){
   safeRender('table', renderTable);
   safeRender('bannerRegionAnalytics', renderBannerRegionAnalytics);
   safeRender('feedbackFeed', renderFeedbackFeed);
-  safeRender('repManagerPerformance', renderRepManagerPerformance);
+  // renderRepManagerPerformance is superseded by renderRepManagerTab — stub to prevent ReferenceError
+  safeRender('repManagerPerformance', function renderRepManagerPerformance(){});
   safeRender('skuInsights', renderSkuInsights);
   safeRender('storeDeepDive', renderStoreDeepDive);
   safeRender('actionedPendingBars', renderActionedPendingBars);
