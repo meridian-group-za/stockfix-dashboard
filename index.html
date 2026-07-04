@@ -244,6 +244,31 @@
 .ai-btn{background:#f0f3f6;border:1px solid #d4dde6;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;color:#003B71;}
 @media(max-width:1100px){.ai-kpi-row{grid-template-columns:repeat(3,1fr)}.ai-grid-2{grid-template-columns:1fr}.ai-toolbar{align-items:flex-start}.ai-issue-row{grid-template-columns:105px 1fr 48px}}
 
+/* ===== Supply Chain Signals panel ===== */
+.sc-panel{margin-top:8px;}
+.sc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.sc-toolbar .ai-sub{font-size:9.5px;color:var(--muted);font-weight:700;}
+.sc-threshold{display:flex;align-items:center;gap:6px;}
+.sc-threshold label{font-size:8.5px;color:#8193a6;text-transform:uppercase;font-weight:900;letter-spacing:.35px;}
+.sc-threshold select{height:26px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:10px;color:#30475c;font-family:inherit;}
+.sc-table tbody tr{cursor:pointer;}
+.sc-table tbody tr:hover{background:#eef4fa;}
+.sc-stores-badge{display:inline-block;background:#fde9e0;color:#b64d00;border-radius:999px;padding:3px 9px;font-weight:900;font-size:9.5px;}
+.sc-stores-badge.high{background:#fbdada;color:#a11d1d;}
+
+/* Modal overlay for SKU store drill-down */
+.sc-modal-overlay{position:fixed;inset:0;background:rgba(5,18,40,0.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:24px;}
+.sc-modal-overlay.open{display:flex;}
+.sc-modal{background:#fff;border-radius:14px;max-width:920px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,0.35);overflow:hidden;}
+.sc-modal-head{padding:16px 20px;border-bottom:1px solid #edf1f5;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.sc-modal-head h3{margin:0;font-size:15px;color:var(--navy);font-weight:900;}
+.sc-modal-head .sc-modal-sub{font-size:10px;color:var(--muted);font-weight:700;margin-top:4px;}
+.sc-modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:#8193a6;padding:2px 6px;}
+.sc-modal-close:hover{color:#22384b;}
+.sc-modal-body{padding:14px 20px;overflow:auto;}
+.sc-modal-foot{padding:12px 20px;border-top:1px solid #edf1f5;display:flex;justify-content:flex-end;gap:8px;}
+@media(max-width:700px){.sc-modal{max-height:92vh;}}
+
 </style>
 </head>
 <body class="auth-pending">
@@ -599,9 +624,57 @@
         </table>
       </div>
     </div>
+
+    <div class="ai-panel sc-panel">
+      <div class="sc-toolbar">
+        <div>
+          <h2 style="border:none;padding:0;margin:0;">Supply Chain Signals <span class="tag">SKUs flagged across many stores — escalate beyond field execution</span></h2>
+          <div class="ai-sub" style="margin-top:4px;">Same SKU + same task appearing in multiple stores points to a DC, ranging or planogram issue, not a rep problem. Click a row to see affected stores.</div>
+        </div>
+        <div class="sc-threshold">
+          <label for="scThreshold">Flag at</label>
+          <select id="scThreshold">
+            <option value="3">3+ stores</option>
+            <option value="5" selected>5+ stores</option>
+            <option value="8">8+ stores</option>
+            <option value="10">10+ stores</option>
+          </select>
+        </div>
+      </div>
+      <div class="ai-table-scroll">
+        <table class="ai-table sc-table" id="scTable">
+          <thead><tr><th>SKU</th><th>Article</th><th>Action</th><th>Classification</th><th>Stores Affected</th><th>Completion Rate</th><th>Avg SOH</th><th>Weeks Appearing</th></tr></thead>
+          <tbody id="scTableBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
 </main>
+
+<!-- Supply Chain Signals: store drill-down modal -->
+<div class="sc-modal-overlay" id="scModalOverlay">
+  <div class="sc-modal">
+    <div class="sc-modal-head">
+      <div>
+        <h3 id="scModalTitle">SKU detail</h3>
+        <div class="sc-modal-sub" id="scModalSub"></div>
+      </div>
+      <button class="sc-modal-close" id="scModalCloseBtn" aria-label="Close">&times;</button>
+    </div>
+    <div class="sc-modal-body">
+      <div class="ai-table-scroll">
+        <table class="ai-table" id="scModalTable">
+          <thead><tr><th>Store</th><th>Region</th><th>SOH</th><th>Action</th><th>Action Status</th><th>Reason Code (rep logged)</th></tr></thead>
+          <tbody id="scModalTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sc-modal-foot">
+      <button class="ai-btn" id="scModalExportBtn">↓ Export this SKU's stores (Excel)</button>
+    </div>
+  </div>
+</div>
 
 <style id="authBlurStyle">
   body.auth-pending main, body.auth-pending header, body.auth-pending .tab-bar, body.auth-pending .filter-bar { filter: blur(4px); pointer-events: none; user-select: none; }
@@ -981,12 +1054,14 @@ function getPrevWeekFilteredRows(){
   if (!pk) return null;
   const prevRows = weekRowCache[pk];
   if (!prevRows) return null; // not loaded yet - ensurePrevWeekLoaded() fetches it in the background
+  // Deliberately ignore state.status here, same as rowsIgnoring('status') does for the
+  // current week in renderIconKpiRow(). Both sides of the "vs prior" comparison must use
+  // the same filter set, or Total/Completed/Pending stop being internally consistent.
   return prevRows.filter(r => {
     if (state.client !== '__all__' && r.client !== state.client) return false;
     if (state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (state.region !== '__all__' && r.region !== state.region) return false;
     if (state.classification !== '__all__' && r.classification !== state.classification) return false;
-    if (state.status !== '__all__' && r.actionStatus !== state.status) return false;
     return true;
   });
 }
@@ -1388,7 +1463,15 @@ const sparkChartInstances = {};
 function renderTaskBreakdown(){
   const byWeek = weeklyClassificationTotals();
   const weeks = Object.keys(byWeek).sort();
-  const currentRows = rowsIgnoring('classification');
+  // Panel is labelled "all lines" — so it must ignore classification AND status filters,
+  // otherwise selecting a Status (e.g. "Completed") silently scopes "all lines" down to
+  // that status only, and the completion badge below collapses to a meaningless 100%.
+  const currentRows = currentWeekRows().filter(r => {
+    if (state.client !== '__all__' && r.client !== state.client) return false;
+    if (state.banner !== '__all__' && r.banner !== state.banner) return false;
+    if (state.region !== '__all__' && r.region !== state.region) return false;
+    return true;
+  });
   const totalForPct = currentRows.length;
   const currentCounts = {};
   currentRows.forEach(r => { currentCounts[r.classification] = (currentCounts[r.classification]||0)+1; });
@@ -1400,10 +1483,11 @@ function renderTaskBreakdown(){
   const grid = document.getElementById('taskBreakdownGrid');
   if (!grid) return;
 
-  // Calculate actioned counts per classification
-  const filteredAll = filteredRows();
+  // Actioned counts per classification, computed from the SAME "all lines" set above —
+  // not from filteredRows() — so the completion rate is actioned-of-all-lines regardless
+  // of whatever the Status dropdown happens to be set to.
   const actionedByClass = {};
-  filteredAll.forEach(r => {
+  currentRows.forEach(r => {
     if (isActioned(r.actionStatus)) {
       actionedByClass[r.classification] = (actionedByClass[r.classification]||0)+1;
     }
@@ -2090,9 +2174,11 @@ async function renderActionImpactTab(force){
   const tab = document.getElementById('tab-actionimpact');
   if (!tab) return;
   aiInitControls();
+  scInitControls();
   const impactWeek = aiImpactWeekValue() || LATEST_WEEK;
   const result = await aiBuildData(impactWeek);
-  aiRender(result);
+  try { aiRender(result); } catch (e) { console.error('Action Impact: aiRender failed', e); }
+  try { scRender(); } catch (e) { console.error('Action Impact: Supply Chain Signals render failed', e); }
 }
 function aiRender(result){
   const details = result.details || [];
@@ -2121,11 +2207,16 @@ function aiRender(result){
   const kpiEl = document.getElementById('aiKpiRow');
   if (kpiEl) kpiEl.innerHTML = kpis.map(k => `<div class="ai-kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div><div class="note">${k.note}</div></div>`).join('');
 
-  aiRenderIssueBars(result.issueSummary || {});
-  aiRenderImpactSplitChart({stockImproved, salesImproved, open});
-  aiRenderRows('aiStockTableBody', stockRows, 'stock');
-  aiRenderRows('aiSalesTableBody', salesRows, 'sales');
-  aiRenderRows('aiFollowupTableBody', followRows, 'follow');
+  // Each panel below renders independently — if one throws (e.g. a Chart.js
+  // "canvas already in use" error on fast re-render), it must not prevent the
+  // rest of the tab (or the Supply Chain Signals panel called after aiRender)
+  // from rendering.
+  const safeStep = (label, fn) => { try { fn(); } catch (e) { console.error(`Action Impact: ${label} failed`, e); } };
+  safeStep('issue bars', () => aiRenderIssueBars(result.issueSummary || {}));
+  safeStep('impact split chart', () => aiRenderImpactSplitChart({stockImproved, salesImproved, open}));
+  safeStep('stock table', () => aiRenderRows('aiStockTableBody', stockRows, 'stock'));
+  safeStep('sales table', () => aiRenderRows('aiSalesTableBody', salesRows, 'sales'));
+  safeStep('followup table', () => aiRenderRows('aiFollowupTableBody', followRows, 'follow'));
 }
 function aiRenderIssueBars(summary){
   const el = document.getElementById('aiIssueBars'); if (!el) return;
@@ -2142,7 +2233,14 @@ function aiRenderIssueBars(summary){
 }
 function aiRenderImpactSplitChart(vals){
   const ctx = document.getElementById('aiImpactSplitChart'); if (!ctx || typeof Chart === 'undefined') return;
-  if (aiChartInstance) aiChartInstance.destroy();
+  // Don't rely solely on the module-level aiChartInstance reference — if two
+  // renders overlap (e.g. impact week changed right after a filter change),
+  // that variable can go stale and Chart.js will throw "Canvas is already in
+  // use" when we try to create a second chart on the same <canvas>. Chart.js's
+  // own registry (Chart.getChart) is the source of truth for what's actually
+  // attached to this element, so check that too before creating a new one.
+  const existing = aiChartInstance || (typeof Chart.getChart === 'function' ? Chart.getChart(ctx) : null);
+  if (existing) { try { existing.destroy(); } catch (e) { /* already gone */ } }
   aiChartInstance = new Chart(ctx, {
     type:'doughnut',
     data:{ labels:['Stock improved','Sales improved','Open follow-ups'], datasets:[{ data:[vals.stockImproved, vals.salesImproved, vals.open], backgroundColor:['#003B71','#2c8fae','#d9a72e'], borderWidth:0 }] },
@@ -2203,6 +2301,167 @@ function aiExportXlsx(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Action Impact');
   XLSX.writeFile(wb, `stockfix_action_impact_${aiCache.impactWeek}.xlsx`);
+}
+
+// =========================================================================
+// SUPPLY CHAIN SIGNALS - multi-store SKU alerts (bottom panel of Action Impact)
+// Reuses the same baseline/impact weeks already loaded for Action Impact —
+// no extra SharePoint calls.
+// =========================================================================
+let scInitialised = false;
+let scThreshold = 5;
+let scGroups = [];
+let scActiveGroup = null;
+
+function scGroupKey(r){ return `${aiText(r.barcode).toLowerCase()}|${aiText(r.action).toLowerCase()}`; }
+
+function scGroupRows(rows){
+  const map = new Map();
+  rows.forEach(r => {
+    if (!aiText(r.barcode) || !aiText(r.action)) return;
+    const k = scGroupKey(r);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(r);
+  });
+  return map;
+}
+
+function scBuildData(threshold){
+  if (!aiCache) return [];
+  const impactWeek = aiCache.impactWeek;
+  const baselineWeek = aiCache.baselineWeek;
+  const impactRows = (weekRowCache[impactWeek] || []).filter(aiPassGlobalFilters);
+  const baselineRows = (weekRowCache[baselineWeek] || []).filter(aiPassGlobalFilters);
+
+  const impactGroups = scGroupRows(impactRows);
+  const baselineGroups = scGroupRows(baselineRows);
+
+  const results = [];
+  impactGroups.forEach((groupRows, key) => {
+    const stores = new Set(groupRows.map(r => aiText(r.store)));
+    if (stores.size < threshold) return;
+    const first = groupRows[0];
+    const completed = groupRows.filter(r => isActioned(r.actionStatus)).length;
+    const completionRate = groupRows.length ? Math.round((completed / groupRows.length) * 100) : 0;
+    const avgSoh = groupRows.length ? (groupRows.reduce((s,r)=>s+aiSoh(r),0) / groupRows.length) : 0;
+
+    let weeksAppearing = 1;
+    const baseGroupRows = baselineGroups.get(key);
+    if (baseGroupRows) {
+      const baseStores = new Set(baseGroupRows.map(r => aiText(r.store)));
+      if (baseStores.size >= threshold) weeksAppearing = 2;
+    }
+
+    results.push({
+      key,
+      barcode: first.barcode,
+      article: first.article,
+      action: first.action,
+      classification: first.classification,
+      storesAffected: stores.size,
+      completionRate,
+      avgSoh,
+      weeksAppearing,
+      rows: groupRows.sort((a,b) => aiText(a.store).localeCompare(aiText(b.store)))
+    });
+  });
+
+  results.sort((a,b) => b.storesAffected - a.storesAffected);
+  return results;
+}
+
+function scRender(){
+  const body = document.getElementById('scTableBody');
+  if (!body) return;
+  scGroups = scBuildData(scThreshold);
+  if (!scGroups.length) {
+    body.innerHTML = `<tr><td colspan="8" class="ai-empty">No SKUs currently flagged at ${scThreshold}+ stores for this comparison.</td></tr>`;
+    return;
+  }
+  body.innerHTML = scGroups.map((g, idx) => {
+    const badgeCls = g.storesAffected >= (scThreshold * 2) ? 'high' : '';
+    return `<tr data-sc-idx="${idx}">
+      ${aiRowTd(g.barcode)}
+      ${aiRowTd(g.article)}
+      ${aiRowTd(g.action)}
+      ${aiRowTd(g.classification)}
+      <td><span class="sc-stores-badge ${badgeCls}">${g.storesAffected}</span></td>
+      ${aiRowTd(g.completionRate + '%')}
+      ${aiRowTd(aiFmt(Math.round(g.avgSoh)))}
+      ${aiRowTd(g.weeksAppearing)}
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('tr[data-sc-idx]').forEach(tr => {
+    tr.addEventListener('click', () => scOpenModal(Number(tr.getAttribute('data-sc-idx'))));
+  });
+}
+
+function scOpenModal(idx){
+  const g = scGroups[idx];
+  if (!g) return;
+  scActiveGroup = g;
+  const overlay = document.getElementById('scModalOverlay');
+  document.getElementById('scModalTitle').textContent = `${g.article || g.barcode} — ${g.action}`;
+  document.getElementById('scModalSub').textContent = `${g.storesAffected} stores affected · ${g.completionRate}% completion · avg SOH ${aiFmt(Math.round(g.avgSoh))} · appeared ${g.weeksAppearing} of last 2 loaded weeks`;
+  const body = document.getElementById('scModalTableBody');
+  body.innerHTML = g.rows.map(r => `<tr>
+    ${aiRowTd(r.store)}
+    ${aiRowTd(r.region)}
+    ${aiRowTd(aiFmt(aiSoh(r)))}
+    ${aiRowTd(r.action)}
+    <td style="${(function(){ return isActioned(r.actionStatus) ? 'color:#1f9d6b;font-weight:900;' : (isPending(r.actionStatus) ? 'color:#9a6f00;font-weight:900;' : ''); })()}">${aiEsc(r.actionStatus || '—')}</td>
+    ${aiRowTd(r.reasonCode)}
+  </tr>`).join('');
+  if (overlay) overlay.classList.add('open');
+}
+
+function scCloseModal(){
+  const overlay = document.getElementById('scModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  scActiveGroup = null;
+}
+
+function scExportModal(){
+  if (!scActiveGroup) return;
+  const g = scActiveGroup;
+  const rows = g.rows.map(r => ({
+    sku: g.barcode,
+    article: g.article,
+    action: g.action,
+    classification: g.classification,
+    store: r.store || '',
+    region: r.region || '',
+    soh: aiSoh(r),
+    actionStatus: r.actionStatus || '',
+    reasonCode: r.reasonCode || '',
+    feedback: r.feedback || ''
+  }));
+  const safeName = String(g.barcode || 'sku').replace(/[^a-z0-9]/gi, '_');
+  if (typeof XLSX === 'undefined') {
+    const fields = Object.keys(rows[0]);
+    const csv = [fields.join(',')].concat(rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g,'""') + '"').join(','))).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `stockfix_supply_signal_${safeName}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Supply Chain Signal');
+  XLSX.writeFile(wb, `stockfix_supply_signal_${safeName}.xlsx`);
+}
+
+function scInitControls(){
+  if (scInitialised) return;
+  scInitialised = true;
+  const sel = document.getElementById('scThreshold');
+  if (sel) sel.addEventListener('change', () => { scThreshold = Number(sel.value) || 5; scRender(); });
+  const closeBtn = document.getElementById('scModalCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', scCloseModal);
+  const overlay = document.getElementById('scModalOverlay');
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) scCloseModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') scCloseModal(); });
+  const exportBtn = document.getElementById('scModalExportBtn');
+  if (exportBtn) exportBtn.addEventListener('click', scExportModal);
 }
 
 // =========================================================================
