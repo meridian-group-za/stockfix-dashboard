@@ -274,13 +274,14 @@
 /* Modal overlay for SKU store drill-down */
 .sc-modal-overlay{position:fixed;inset:0;background:rgba(5,18,40,0.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:24px;}
 .sc-modal-overlay.open{display:flex;}
-.sc-modal{background:#fff;border-radius:14px;max-width:920px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,0.35);overflow:hidden;}
+.sc-modal{background:#fff;border-radius:14px;max-width:1240px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,0.35);overflow:hidden;}
 .sc-modal-head{padding:16px 20px;border-bottom:1px solid #edf1f5;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .sc-modal-head h3{margin:0;font-size:15px;color:var(--navy);font-weight:900;}
 .sc-modal-head .sc-modal-sub{font-size:10px;color:var(--muted);font-weight:700;margin-top:4px;}
 .sc-modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:#8193a6;padding:2px 6px;}
 .sc-modal-close:hover{color:#22384b;}
 .sc-modal-body{padding:14px 20px;overflow:auto;}
+#scModalTable th, #scModalTable td{white-space:normal;word-break:break-word;}
 .sc-modal-foot{padding:12px 20px;border-top:1px solid #edf1f5;display:flex;justify-content:flex-end;gap:8px;}
 @media(max-width:700px){.sc-modal{max-height:92vh;}}
 
@@ -559,7 +560,6 @@
         <label for="aiImpactWeek">Impact Week</label>
         <select id="aiImpactWeek"></select>
         <div class="ai-actions">
-          <button class="ai-btn" id="aiExportCsvBtn">↓ CSV</button>
           <button class="ai-btn" id="aiExportXlsxBtn">↓ Excel</button>
         </div>
       </div>
@@ -568,7 +568,6 @@
     <div class="ai-chip-row">
       <span class="ai-chip orange" id="aiBaselineChip">Baseline: 4 loaded weeks prior</span>
       <span class="ai-chip" id="aiImpactChip">Impact: selected week</span>
-      <span class="ai-chip">Included: feedback not blank in baseline week</span>
     </div>
 
     <div id="aiLoading" class="ai-loader" style="display:none;">Loading Action Impact data…</div>
@@ -592,7 +591,7 @@
 
     <div class="ai-grid-2">
       <div class="ai-panel">
-        <h2>Stock Position Improved <span class="tag">SOH moved in the right direction \u00b7 top 25</span></h2>
+        <h2>Stock Position Improved <span class="tag">SOH moved in the right direction</span></h2>
         <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
             <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>SOH 4W Ago</th><th>SOH Impact</th><th>SOH Now</th><th>Status Now</th></tr></thead>
@@ -601,7 +600,7 @@
         </div>
       </div>
       <div class="ai-panel">
-        <h2>Sales Improved <span class="tag">P4W sales increased \u00b7 top 25</span></h2>
+        <h2>Sales Improved <span class="tag">P4W sales increased</span></h2>
         <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
             <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>P4W 4W Ago</th><th>P4W Impact</th><th>P4W Now</th><th>Status Now</th></tr></thead>
@@ -666,7 +665,7 @@
     <div class="sc-modal-body">
       <div class="ai-table-scroll">
         <table class="ai-table" id="scModalTable">
-          <thead><tr><th>Store</th><th>Region</th><th>SOH</th><th>Action</th><th>Action Status</th><th>Reason Code (rep logged)</th></tr></thead>
+          <thead><tr><th>Store</th><th>Region</th><th>SOH</th><th>P4W Sales</th><th>WFC</th><th>Action</th><th>Action Status</th><th>Reason Code (rep logged)</th><th>Date Logged</th></tr></thead>
           <tbody id="scModalTableBody"></tbody>
         </table>
       </div>
@@ -1841,6 +1840,15 @@ function aiP4w(r){
     r['P4W Sales'] ?? r['P4 week Sales'] ?? r['P4 Week Sales'] ?? r['P4 week sales'] ?? r['P4 Week Sales Units'] ?? r['Sell Out P4 Weeks']
   ));
 }
+function aiWfc(soh, p4wSales){
+  // Weeks Forward Cover: how many weeks the current stock will last at the
+  // recent (P4W) sell-through rate. Undefined when there's no sales to base
+  // a rate on — SOH sitting there with zero sales isn't "infinite cover" in
+  // any useful sense, it's just idle stock, so return null and let the
+  // caller show a dash rather than a misleading number.
+  if (!p4wSales || p4wSales <= 0) return null;
+  return (soh / p4wSales) * 4;
+}
 function aiIssue(cls){
   const s = aiText(cls).toLowerCase();
   if (s.includes('negative')) return 'Negative SOH';
@@ -1904,8 +1912,6 @@ function aiInitControls(){
     }
     sel.addEventListener('change', () => { aiCacheKey = null; aiCache = null; renderActionImpactTab(true); });
   }
-  const csvBtn = document.getElementById('aiExportCsvBtn');
-  if (csvBtn) csvBtn.addEventListener('click', aiExportCsv);
   const xlsxBtn = document.getElementById('aiExportXlsxBtn');
   if (xlsxBtn) xlsxBtn.addEventListener('click', aiExportXlsx);
 }
@@ -2227,14 +2233,20 @@ function scOpenModal(idx){
   document.getElementById('scModalTitle').textContent = `${g.article || g.barcode} — ${g.action}`;
   document.getElementById('scModalSub').textContent = `${g.storesAffected} stores affected · ${g.completionRate}% completion · avg SOH ${aiFmt(Math.round(g.avgSoh))} · appeared ${g.weeksAppearing} of last 2 loaded weeks`;
   const body = document.getElementById('scModalTableBody');
-  body.innerHTML = g.rows.map(r => `<tr>
+  body.innerHTML = g.rows.map(r => {
+    const wfc = aiWfc(aiSoh(r), aiP4w(r));
+    return `<tr>
     ${aiRowTd(r.store)}
     ${aiRowTd(r.region)}
     ${aiRowTd(aiFmt(aiSoh(r)))}
+    ${aiRowTd(aiFmt(aiP4w(r)))}
+    ${aiRowTd(wfc === null ? '—' : (Math.round(wfc*10)/10).toLocaleString())}
     ${aiRowTd(r.action)}
     <td style="${(function(){ return isActioned(r.actionStatus) ? 'color:#1f9d6b;font-weight:900;' : (isPending(r.actionStatus) ? 'color:#9a6f00;font-weight:900;' : ''); })()}">${aiEsc(r.actionStatus || '—')}</td>
     ${aiRowTd(r.reasonCode)}
-  </tr>`).join('');
+    ${aiRowTd(r.actionDate)}
+  </tr>`;
+  }).join('');
   if (overlay) overlay.classList.add('open');
 }
 
@@ -2247,18 +2259,26 @@ function scCloseModal(){
 function scExportModal(){
   if (!scActiveGroup) return;
   const g = scActiveGroup;
-  const rows = g.rows.map(r => ({
-    sku: g.barcode,
-    article: g.article,
-    action: g.action,
-    classification: g.classification,
-    store: r.store || '',
-    region: r.region || '',
-    soh: aiSoh(r),
-    actionStatus: r.actionStatus || '',
-    reasonCode: r.reasonCode || '',
-    feedback: r.feedback || ''
-  }));
+  const rows = g.rows.map(r => {
+    const soh = aiSoh(r);
+    const p4w = aiP4w(r);
+    const wfc = aiWfc(soh, p4w);
+    return {
+      sku: g.barcode,
+      article: g.article,
+      action: g.action,
+      classification: g.classification,
+      store: r.store || '',
+      region: r.region || '',
+      soh,
+      p4wSales: p4w,
+      wfc: wfc === null ? '' : Math.round(wfc*10)/10,
+      actionStatus: r.actionStatus || '',
+      reasonCode: r.reasonCode || '',
+      dateLogged: r.actionDate || '',
+      feedback: r.feedback || ''
+    };
+  });
   const safeName = String(g.barcode || 'sku').replace(/[^a-z0-9]/gi, '_');
   if (typeof XLSX === 'undefined') {
     const fields = Object.keys(rows[0]);
