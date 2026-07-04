@@ -928,14 +928,25 @@ async function fetchGzJsonlFile(token, relativePath) {
 // =========================================================================
 let rollup = [];          // built client-side from summary.json: [{week, client, classification, count}]
 let actionStatusRollup = [];
+let summaryDetailRows = []; // full summary.json rows, kept for fast filtered prior-week KPI deltas
 let weeksIndex = [];
 let weekRowCache = {};    // week -> full row array, loaded on demand
 let LATEST_WEEK = null;
 
 function buildRollups(summaryRows) {
+  summaryDetailRows = (summaryRows || []).map(r => ({
+    week: r.week,
+    client: r.client || 'Unknown',
+    banner: r.banner || 'Unknown',
+    region: r.region || 'Unknown',
+    classification: r.classification || 'Unclassified',
+    actionStatus: r.actionStatus || 'Unknown',
+    count: Number(r.count || 0)
+  }));
+
   const byClientClass = {};
   const byStatus = {};
-  summaryRows.forEach(r => {
+  summaryDetailRows.forEach(r => {
     const k1 = `${r.week}\u0001${r.client}\u0001${r.classification}`;
     byClientClass[k1] = (byClientClass[k1] || 0) + r.count;
     const k2 = `${r.week}\u0001${r.actionStatus}`;
@@ -1160,7 +1171,7 @@ function getPrevWeekFilteredRows(){
   const pk = getPrevWeekKey();
   if (!pk) return null;
   const prevRows = weekRowCache[pk];
-  if (!prevRows) return null; // not loaded yet - ensurePrevWeekLoaded() fetches it in the background
+  if (!prevRows) return null;
   // Deliberately ignore state.status here, same as rowsIgnoring('status') does for the
   // current week in renderIconKpiRow(). Both sides of the "vs prior" comparison must use
   // the same filter set, or Total/Completed/Pending stop being internally consistent.
@@ -1171,6 +1182,22 @@ function getPrevWeekFilteredRows(){
     if (state.classification !== '__all__' && r.classification !== state.classification) return false;
     return true;
   });
+}
+function getSummaryTotalsForWeek(week){
+  if (!week || !summaryDetailRows.length) return null;
+  const totals = { total: 0, actioned: 0, pending: 0, rate: 0 };
+  summaryDetailRows.forEach(r => {
+    if (r.week !== week) return;
+    if (state.client !== '__all__' && r.client !== state.client) return;
+    if (state.banner !== '__all__' && r.banner !== state.banner) return;
+    if (state.region !== '__all__' && r.region !== state.region) return;
+    if (state.classification !== '__all__' && r.classification !== state.classification) return;
+    totals.total += r.count;
+    if (isActioned(r.actionStatus)) totals.actioned += r.count;
+    if (isPending(r.actionStatus)) totals.pending += r.count;
+  });
+  totals.rate = totals.total ? Math.round((totals.actioned / totals.total) * 1000) / 10 : 0;
+  return totals;
 }
 async function ensurePrevWeekLoaded(){
   const pk = getPrevWeekKey();
@@ -1249,17 +1276,8 @@ function renderIconKpiRow(){
   const stores = new Set(rows.map(r=>r.store)).size;
   const skus = new Set(rows.map(r=>r.article)).size;
 
-  const prevRows = getPrevWeekFilteredRows();
-  let prev = null;
-  if (prevRows) {
-    const pAct = prevRows.filter(r=>isActioned(r.actionStatus)).length;
-    prev = {
-      total: prevRows.length, actioned: pAct, pending: prevRows.length - pAct,
-      rate: prevRows.length ? Math.round((pAct/prevRows.length)*1000)/10 : 0,
-      stores: new Set(prevRows.map(r=>r.store)).size,
-      skus: new Set(prevRows.map(r=>r.article)).size,
-    };
-  } else { ensurePrevWeekLoaded(); }
+  const prevWeek = getPrevWeekKey();
+  const prev = getSummaryTotalsForWeek(prevWeek);
 
   function dd(curr, p, goodUp, isPct){
     if (!prev || p === null || p === undefined) return '';
