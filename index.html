@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockFix Field Performance Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 
@@ -63,12 +63,12 @@
 
   /* KPI ROW */
   .icon-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-  .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:72px;}
+  .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
   .icon-kpi-card .icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#003B71;flex-shrink:0;color:#fff;}
   .icon-kpi-card .icon svg{width:17px;height:17px;stroke:#fff;}
   .icon-kpi-card .kpi-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;}
   .icon-kpi-card .kpi-value{font-size:20px;font-weight:900;color:var(--navy);line-height:1.05;margin-top:2px;}
-  .icon-kpi-card .kpi-delta{font-size:9px;color:#91a0ae;margin-top:2px;}
+  .icon-kpi-card .kpi-delta,.icon-kpi-card .kpi-sub{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
   .delta-bad{color:var(--c-oos)!important;}
   .delta-good{color:var(--c-optimal)!important;}
 
@@ -184,9 +184,17 @@
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
   .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-  .kpi-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-top:3px solid var(--orange);}
-  .kpi-card .label{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
-  .kpi-card .value{font-size:18px;font-weight:700;margin-top:3px;color:var(--navy);}
+  .kpi-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-left:4px solid var(--navy);box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
+  .kpi-card .label{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:800;}
+  .kpi-card .value{font-size:20px;font-weight:900;margin-top:3px;color:var(--navy);line-height:1.05;}
+  .kpi-card .kpi-sub{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
+  /* Color variants — same classification palette used across the rest of the dashboard */
+  .kpi-card.c-optimal{border-left-color:var(--c-optimal);}
+  .kpi-card.c-overstock{border-left-color:var(--c-overstock);}
+  .kpi-card.c-understock{border-left-color:var(--c-understock);}
+  .kpi-card.c-oos{border-left-color:var(--c-oos);}
+  .kpi-card.c-idle{border-left-color:#7c8aa0;}
+  .kpi-card.c-negative{border-left-color:var(--c-negative);}
   .feedback-item{border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:7px;}
   .feedback-item .fb-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:10px;color:var(--muted);font-weight:600;}
   .feedback-item .fb-store{color:var(--navy);font-weight:800;font-size:11px;}
@@ -206,15 +214,15 @@
 .ai-chip{background:#eef4fa;border:1px solid #d7e4ef;color:#24435e;border-radius:999px;padding:5px 9px;font-size:9px;font-weight:800;}
 .ai-chip.orange{background:#fff4ec;border-color:#ffd8bd;color:#b64d00;}
 .ai-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-.ai-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-left:5px solid var(--navy);box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:78px;}
+.ai-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-left:4px solid var(--navy);box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
 .ai-kpi.orange{border-left-color:var(--orange);}
 .ai-kpi.green{border-left-color:var(--c-optimal);}
 .ai-kpi.amber{border-left-color:var(--c-overstock);}
 .ai-kpi.blue{border-left-color:var(--c-understock);}
 .ai-kpi.purple{border-left-color:var(--c-negative);}
-.ai-kpi .lbl{font-size:8.4px;color:var(--muted);text-transform:uppercase;letter-spacing:.35px;font-weight:900;}
-.ai-kpi .val{font-size:19px;font-weight:900;color:var(--navy);margin-top:4px;line-height:1.05;}
-.ai-kpi .note{font-size:8.7px;color:#7b8fa4;font-weight:700;margin-top:4px;line-height:1.25;}
+.ai-kpi .lbl{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:800;}
+.ai-kpi .val{font-size:20px;font-weight:900;color:var(--navy);margin-top:3px;line-height:1.05;}
+.ai-kpi .note{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
 .ai-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
 .ai-panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);}
 .ai-panel h2{font-size:12px;margin:0 0 9px;color:var(--navy);font-weight:900;display:flex;justify-content:space-between;align-items:center;padding-bottom:7px;border-bottom:1px solid #edf1f5;}
@@ -555,7 +563,6 @@
   <!-- LEADERBOARD TAB                                                      -->
   <!-- ================================================================== -->
 
-<script type="application/json" id="data-region-week">[{"region": "EAST LONDON", "week": "2025-10-01", "total": 12, "actioned": 11}, {"region": "EAST LONDON", "week": "2025-10-30", "total": 4452, "actioned": 0}, {"region": "EAST LONDON", "week": "2025-11-07", "total": 3966, "actioned": 3}, {"region": "EAST LONDON", "week": "2025-11-14", "total": 2706, "actioned": 3}, {"region": "EAST LONDON", "week": "2025-11-27", "total": 1, "actioned": 1}, {"region": "EAST LONDON", "week": "2025-12-05", "total": 1094, "actioned": 28}, {"region": "EAST LONDON", "week": "2025-12-12", "total": 1727, "actioned": 1}, {"region": "EAST LONDON", "week": "2025-12-17", "total": 2476, "actioned": 1}, {"region": "EAST LONDON", "week": "2026-01-14", "total": 1468, "actioned": 24}, {"region": "EAST LONDON", "week": "2026-01-21", "total": 7942, "actioned": 0}, {"region": "EAST LONDON", "week": "2026-01-28", "total": 3586, "actioned": 241}, {"region": "EAST LONDON", "week": "2026-02-04", "total": 7582, "actioned": 458}, {"region": "EAST LONDON", "week": "2026-02-11", "total": 8430, "actioned": 476}, {"region": "EAST LONDON", "week": "2026-02-18", "total": 7256, "actioned": 519}, {"region": "EAST LONDON", "week": "2026-02-25", "total": 7545, "actioned": 395}, {"region": "EAST LONDON", "week": "2026-03-04", "total": 7435, "actioned": 344}, {"region": "EAST LONDON", "week": "2026-03-11", "total": 7503, "actioned": 183}, {"region": "EAST LONDON", "week": "2026-03-18", "total": 6031, "actioned": 303}, {"region": "EAST LONDON", "week": "2026-03-25", "total": 7865, "actioned": 308}, {"region": "EAST LONDON", "week": "2026-04-01", "total": 5198, "actioned": 125}, {"region": "EAST LONDON", "week": "2026-04-08", "total": 5539, "actioned": 373}, {"region": "EAST LONDON", "week": "2026-04-15", "total": 7036, "actioned": 607}, {"region": "EAST LONDON", "week": "2026-04-29", "total": 3182, "actioned": 503}, {"region": "EAST LONDON", "week": "2026-05-06", "total": 3614, "actioned": 676}, {"region": "EAST LONDON", "week": "2026-05-13", "total": 3880, "actioned": 670}, {"region": "EAST LONDON", "week": "2026-05-20", "total": 5707, "actioned": 850}, {"region": "EAST LONDON", "week": "2026-05-27", "total": 5575, "actioned": 1196}, {"region": "EAST LONDON", "week": "2026-06-03", "total": 5269, "actioned": 759}, {"region": "EAST LONDON", "week": "2026-06-10", "total": 5137, "actioned": 536}, {"region": "EAST LONDON", "week": "2026-06-17", "total": 5291, "actioned": 574}, {"region": "FREE STATE", "week": "2025-10-01", "total": 44, "actioned": 44}, {"region": "FREE STATE", "week": "2025-10-09", "total": 6, "actioned": 6}, {"region": "FREE STATE", "week": "2025-10-15", "total": 82, "actioned": 80}, {"region": "FREE STATE", "week": "2025-10-22", "total": 51, "actioned": 51}, {"region": "FREE STATE", "week": "2025-10-30", "total": 6116, "actioned": 44}, {"region": "FREE STATE", "week": "2025-11-07", "total": 5740, "actioned": 268}, {"region": "FREE STATE", "week": "2025-11-14", "total": 3603, "actioned": 389}, {"region": "FREE STATE", "week": "2025-11-20", "total": 46, "actioned": 46}, {"region": "FREE STATE", "week": "2025-11-27", "total": 171, "actioned": 171}, {"region": "FREE STATE", "week": "2025-12-05", "total": 2302, "actioned": 400}, {"region": "FREE STATE", "week": "2025-12-12", "total": 2029, "actioned": 248}, {"region": "FREE STATE", "week": "2025-12-17", "total": 2681, "actioned": 199}, {"region": "FREE STATE", "week": "2026-01-14", "total": 2360, "actioned": 310}, {"region": "FREE STATE", "week": "2026-01-21", "total": 7291, "actioned": 230}, {"region": "FREE STATE", "week": "2026-01-28", "total": 6034, "actioned": 982}, {"region": "FREE STATE", "week": "2026-02-04", "total": 13027, "actioned": 1469}, {"region": "FREE STATE", "week": "2026-02-11", "total": 12207, "actioned": 2805}, {"region": "FREE STATE", "week": "2026-02-18", "total": 12366, "actioned": 1824}, {"region": "FREE STATE", "week": "2026-02-25", "total": 13574, "actioned": 1704}, {"region": "FREE STATE", "week": "2026-03-04", "total": 12239, "actioned": 1916}, {"region": "FREE STATE", "week": "2026-03-11", "total": 12821, "actioned": 1241}, {"region": "FREE STATE", "week": "2026-03-18", "total": 10654, "actioned": 1057}, {"region": "FREE STATE", "week": "2026-03-25", "total": 12994, "actioned": 2005}, {"region": "FREE STATE", "week": "2026-04-01", "total": 9468, "actioned": 1142}, {"region": "FREE STATE", "week": "2026-04-08", "total": 10883, "actioned": 1570}, {"region": "FREE STATE", "week": "2026-04-15", "total": 11897, "actioned": 1872}, {"region": "FREE STATE", "week": "2026-04-29", "total": 5346, "actioned": 689}, {"region": "FREE STATE", "week": "2026-05-06", "total": 6139, "actioned": 1287}, {"region": "FREE STATE", "week": "2026-05-13", "total": 6655, "actioned": 1681}, {"region": "FREE STATE", "week": "2026-05-20", "total": 9357, "actioned": 1175}, {"region": "FREE STATE", "week": "2026-05-27", "total": 9760, "actioned": 1602}, {"region": "FREE STATE", "week": "2026-06-03", "total": 9171, "actioned": 1559}, {"region": "FREE STATE", "week": "2026-06-10", "total": 8689, "actioned": 1574}, {"region": "FREE STATE", "week": "2026-06-17", "total": 9527, "actioned": 1042}, {"region": "GAUTENG", "week": "2025-10-01", "total": 353, "actioned": 344}, {"region": "GAUTENG", "week": "2025-10-09", "total": 49, "actioned": 48}, {"region": "GAUTENG", "week": "2025-10-15", "total": 84, "actioned": 80}, {"region": "GAUTENG", "week": "2025-10-22", "total": 75, "actioned": 74}, {"region": "GAUTENG", "week": "2025-10-30", "total": 38477, "actioned": 107}, {"region": "GAUTENG", "week": "2025-11-07", "total": 35178, "actioned": 143}, {"region": "GAUTENG", "week": "2025-11-14", "total": 21935, "actioned": 114}, {"region": "GAUTENG", "week": "2025-11-20", "total": 34, "actioned": 34}, {"region": "GAUTENG", "week": "2025-11-27", "total": 173, "actioned": 173}, {"region": "GAUTENG", "week": "2025-12-05", "total": 14877, "actioned": 138}, {"region": "GAUTENG", "week": "2025-12-12", "total": 11488, "actioned": 143}, {"region": "GAUTENG", "week": "2025-12-17", "total": 16185, "actioned": 128}, {"region": "GAUTENG", "week": "2026-01-14", "total": 14641, "actioned": 225}, {"region": "GAUTENG", "week": "2026-01-21", "total": 13417, "actioned": 157}, {"region": "GAUTENG", "week": "2026-01-28", "total": 33879, "actioned": 1035}, {"region": "GAUTENG", "week": "2026-02-04", "total": 70052, "actioned": 3515}, {"region": "GAUTENG", "week": "2026-02-11", "total": 74408, "actioned": 6265}, {"region": "GAUTENG", "week": "2026-02-18", "total": 85870, "actioned": 4451}, {"region": "GAUTENG", "week": "2026-02-25", "total": 91629, "actioned": 3556}, {"region": "GAUTENG", "week": "2026-03-04", "total": 78044, "actioned": 5205}, {"region": "GAUTENG", "week": "2026-03-11", "total": 80213, "actioned": 4018}, {"region": "GAUTENG", "week": "2026-03-18", "total": 74134, "actioned": 3387}, {"region": "GAUTENG", "week": "2026-03-25", "total": 82557, "actioned": 3923}, {"region": "GAUTENG", "week": "2026-04-01", "total": 64545, "actioned": 1538}, {"region": "GAUTENG", "week": "2026-04-08", "total": 70162, "actioned": 2241}, {"region": "GAUTENG", "week": "2026-04-15", "total": 76347, "actioned": 3219}, {"region": "GAUTENG", "week": "2026-04-29", "total": 35022, "actioned": 792}, {"region": "GAUTENG", "week": "2026-05-06", "total": 44756, "actioned": 1349}, {"region": "GAUTENG", "week": "2026-05-13", "total": 46079, "actioned": 1516}, {"region": "GAUTENG", "week": "2026-05-20", "total": 64126, "actioned": 904}, {"region": "GAUTENG", "week": "2026-05-27", "total": 67178, "actioned": 1461}, {"region": "GAUTENG", "week": "2026-06-03", "total": 65342, "actioned": 1308}, {"region": "GAUTENG", "week": "2026-06-10", "total": 65529, "actioned": 2230}, {"region": "GAUTENG", "week": "2026-06-17", "total": 68918, "actioned": 1887}, {"region": "KWAZULU NATAL", "week": "2025-10-01", "total": 70, "actioned": 68}, {"region": "KWAZULU NATAL", "week": "2025-10-09", "total": 11, "actioned": 11}, {"region": "KWAZULU NATAL", "week": "2025-10-15", "total": 8, "actioned": 8}, {"region": "KWAZULU NATAL", "week": "2025-10-30", "total": 17584, "actioned": 91}, {"region": "KWAZULU NATAL", "week": "2025-11-07", "total": 15782, "actioned": 103}, {"region": "KWAZULU NATAL", "week": "2025-11-14", "total": 10014, "actioned": 187}, {"region": "KWAZULU NATAL", "week": "2025-11-20", "total": 61, "actioned": 61}, {"region": "KWAZULU NATAL", "week": "2025-11-27", "total": 36, "actioned": 36}, {"region": "KWAZULU NATAL", "week": "2025-12-05", "total": 5801, "actioned": 25}, {"region": "KWAZULU NATAL", "week": "2025-12-12", "total": 6259, "actioned": 71}, {"region": "KWAZULU NATAL", "week": "2025-12-17", "total": 8086, "actioned": 22}, {"region": "KWAZULU NATAL", "week": "2026-01-14", "total": 7415, "actioned": 85}, {"region": "KWAZULU NATAL", "week": "2026-01-21", "total": 2409, "actioned": 94}, {"region": "KWAZULU NATAL", "week": "2026-01-28", "total": 13695, "actioned": 1694}, {"region": "KWAZULU NATAL", "week": "2026-02-04", "total": 33565, "actioned": 2763}, {"region": "KWAZULU NATAL", "week": "2026-02-11", "total": 33457, "actioned": 2902}, {"region": "KWAZULU NATAL", "week": "2026-02-18", "total": 35603, "actioned": 2345}, {"region": "KWAZULU NATAL", "week": "2026-02-25", "total": 35728, "actioned": 1245}, {"region": "KWAZULU NATAL", "week": "2026-03-04", "total": 33461, "actioned": 1078}, {"region": "KWAZULU NATAL", "week": "2026-03-11", "total": 32943, "actioned": 1368}, {"region": "KWAZULU NATAL", "week": "2026-03-18", "total": 30398, "actioned": 1175}, {"region": "KWAZULU NATAL", "week": "2026-03-25", "total": 35014, "actioned": 1943}, {"region": "KWAZULU NATAL", "week": "2026-04-01", "total": 25821, "actioned": 794}, {"region": "KWAZULU NATAL", "week": "2026-04-08", "total": 28035, "actioned": 913}, {"region": "KWAZULU NATAL", "week": "2026-04-15", "total": 34230, "actioned": 1031}, {"region": "KWAZULU NATAL", "week": "2026-04-29", "total": 16329, "actioned": 422}, {"region": "KWAZULU NATAL", "week": "2026-05-06", "total": 19372, "actioned": 1096}, {"region": "KWAZULU NATAL", "week": "2026-05-13", "total": 19134, "actioned": 798}, {"region": "KWAZULU NATAL", "week": "2026-05-20", "total": 27028, "actioned": 554}, {"region": "KWAZULU NATAL", "week": "2026-05-27", "total": 29193, "actioned": 875}, {"region": "KWAZULU NATAL", "week": "2026-06-03", "total": 28383, "actioned": 861}, {"region": "KWAZULU NATAL", "week": "2026-06-10", "total": 27521, "actioned": 936}, {"region": "KWAZULU NATAL", "week": "2026-06-17", "total": 27758, "actioned": 765}, {"region": "LIMPOPO", "week": "2025-10-01", "total": 83, "actioned": 82}, {"region": "LIMPOPO", "week": "2025-10-09", "total": 24, "actioned": 24}, {"region": "LIMPOPO", "week": "2025-10-15", "total": 159, "actioned": 153}, {"region": "LIMPOPO", "week": "2025-10-22", "total": 119, "actioned": 119}, {"region": "LIMPOPO", "week": "2025-10-30", "total": 5594, "actioned": 8}, {"region": "LIMPOPO", "week": "2025-11-07", "total": 5359, "actioned": 248}, {"region": "LIMPOPO", "week": "2025-11-14", "total": 3978, "actioned": 299}, {"region": "LIMPOPO", "week": "2025-11-20", "total": 7, "actioned": 7}, {"region": "LIMPOPO", "week": "2025-11-27", "total": 35, "actioned": 35}, {"region": "LIMPOPO", "week": "2025-12-05", "total": 1958, "actioned": 229}, {"region": "LIMPOPO", "week": "2025-12-12", "total": 2277, "actioned": 192}, {"region": "LIMPOPO", "week": "2025-12-17", "total": 3198, "actioned": 181}, {"region": "LIMPOPO", "week": "2026-01-14", "total": 2191, "actioned": 83}, {"region": "LIMPOPO", "week": "2026-01-21", "total": 906, "actioned": 7}, {"region": "LIMPOPO", "week": "2026-01-28", "total": 5437, "actioned": 295}, {"region": "LIMPOPO", "week": "2026-02-04", "total": 10894, "actioned": 970}, {"region": "LIMPOPO", "week": "2026-02-11", "total": 10813, "actioned": 1507}, {"region": "LIMPOPO", "week": "2026-02-18", "total": 10159, "actioned": 770}, {"region": "LIMPOPO", "week": "2026-02-25", "total": 11933, "actioned": 580}, {"region": "LIMPOPO", "week": "2026-03-04", "total": 11289, "actioned": 604}, {"region": "LIMPOPO", "week": "2026-03-11", "total": 12012, "actioned": 523}, {"region": "LIMPOPO", "week": "2026-03-18", "total": 9094, "actioned": 217}, {"region": "LIMPOPO", "week": "2026-03-25", "total": 10620, "actioned": 184}, {"region": "LIMPOPO", "week": "2026-04-01", "total": 7782, "actioned": 36}, {"region": "LIMPOPO", "week": "2026-04-08", "total": 8120, "actioned": 83}, {"region": "LIMPOPO", "week": "2026-04-15", "total": 9992, "actioned": 74}, {"region": "LIMPOPO", "week": "2026-04-29", "total": 4759, "actioned": 52}, {"region": "LIMPOPO", "week": "2026-05-06", "total": 5383, "actioned": 134}, {"region": "LIMPOPO", "week": "2026-05-13", "total": 6187, "actioned": 278}, {"region": "LIMPOPO", "week": "2026-05-20", "total": 8876, "actioned": 165}, {"region": "LIMPOPO", "week": "2026-05-27", "total": 8702, "actioned": 165}, {"region": "LIMPOPO", "week": "2026-06-03", "total": 8206, "actioned": 276}, {"region": "LIMPOPO", "week": "2026-06-10", "total": 7923, "actioned": 85}, {"region": "LIMPOPO", "week": "2026-06-17", "total": 8389, "actioned": 275}, {"region": "MPUMALANGA", "week": "2025-10-01", "total": 88, "actioned": 88}, {"region": "MPUMALANGA", "week": "2025-10-09", "total": 25, "actioned": 25}, {"region": "MPUMALANGA", "week": "2025-10-15", "total": 274, "actioned": 272}, {"region": "MPUMALANGA", "week": "2025-10-22", "total": 93, "actioned": 92}, {"region": "MPUMALANGA", "week": "2025-10-30", "total": 8430, "actioned": 48}, {"region": "MPUMALANGA", "week": "2025-11-07", "total": 7863, "actioned": 195}, {"region": "MPUMALANGA", "week": "2025-11-14", "total": 6040, "actioned": 219}, {"region": "MPUMALANGA", "week": "2025-11-20", "total": 39, "actioned": 39}, {"region": "MPUMALANGA", "week": "2025-11-25", "total": 1, "actioned": 1}, {"region": "MPUMALANGA", "week": "2025-11-27", "total": 88, "actioned": 88}, {"region": "MPUMALANGA", "week": "2025-12-05", "total": 2584, "actioned": 63}, {"region": "MPUMALANGA", "week": "2025-12-12", "total": 3163, "actioned": 30}, {"region": "MPUMALANGA", "week": "2025-12-17", "total": 3983, "actioned": 70}, {"region": "MPUMALANGA", "week": "2026-01-14", "total": 3195, "actioned": 47}, {"region": "MPUMALANGA", "week": "2026-01-21", "total": 1149, "actioned": 68}, {"region": "MPUMALANGA", "week": "2026-01-28", "total": 7657, "actioned": 568}, {"region": "MPUMALANGA", "week": "2026-02-04", "total": 14702, "actioned": 1709}, {"region": "MPUMALANGA", "week": "2026-02-11", "total": 14524, "actioned": 1580}, {"region": "MPUMALANGA", "week": "2026-02-18", "total": 14289, "actioned": 710}, {"region": "MPUMALANGA", "week": "2026-02-25", "total": 15639, "actioned": 683}, {"region": "MPUMALANGA", "week": "2026-03-04", "total": 14291, "actioned": 438}, {"region": "MPUMALANGA", "week": "2026-03-11", "total": 15060, "actioned": 515}, {"region": "MPUMALANGA", "week": "2026-03-18", "total": 12669, "actioned": 224}, {"region": "MPUMALANGA", "week": "2026-03-25", "total": 14764, "actioned": 144}, {"region": "MPUMALANGA", "week": "2026-04-01", "total": 11132, "actioned": 76}, {"region": "MPUMALANGA", "week": "2026-04-08", "total": 12164, "actioned": 88}, {"region": "MPUMALANGA", "week": "2026-04-15", "total": 14241, "actioned": 166}, {"region": "MPUMALANGA", "week": "2026-04-29", "total": 6744, "actioned": 43}, {"region": "MPUMALANGA", "week": "2026-05-06", "total": 7488, "actioned": 191}, {"region": "MPUMALANGA", "week": "2026-05-13", "total": 8043, "actioned": 591}, {"region": "MPUMALANGA", "week": "2026-05-20", "total": 12100, "actioned": 289}, {"region": "MPUMALANGA", "week": "2026-05-27", "total": 12593, "actioned": 340}, {"region": "MPUMALANGA", "week": "2026-06-03", "total": 11787, "actioned": 288}, {"region": "MPUMALANGA", "week": "2026-06-10", "total": 11241, "actioned": 374}, {"region": "MPUMALANGA", "week": "2026-06-17", "total": 11944, "actioned": 414}, {"region": "NORTH WEST", "week": "2025-10-01", "total": 54, "actioned": 54}, {"region": "NORTH WEST", "week": "2025-10-09", "total": 3, "actioned": 3}, {"region": "NORTH WEST", "week": "2025-10-15", "total": 80, "actioned": 80}, {"region": "NORTH WEST", "week": "2025-10-22", "total": 29, "actioned": 29}, {"region": "NORTH WEST", "week": "2025-10-30", "total": 3833, "actioned": 56}, {"region": "NORTH WEST", "week": "2025-11-07", "total": 3632, "actioned": 174}, {"region": "NORTH WEST", "week": "2025-11-14", "total": 2417, "actioned": 276}, {"region": "NORTH WEST", "week": "2025-11-20", "total": 77, "actioned": 77}, {"region": "NORTH WEST", "week": "2025-11-27", "total": 13, "actioned": 13}, {"region": "NORTH WEST", "week": "2025-12-05", "total": 1378, "actioned": 72}, {"region": "NORTH WEST", "week": "2025-12-12", "total": 1295, "actioned": 96}, {"region": "NORTH WEST", "week": "2025-12-17", "total": 1597, "actioned": 60}, {"region": "NORTH WEST", "week": "2026-01-14", "total": 1398, "actioned": 32}, {"region": "NORTH WEST", "week": "2026-01-21", "total": 497, "actioned": 0}, {"region": "NORTH WEST", "week": "2026-01-28", "total": 3829, "actioned": 312}, {"region": "NORTH WEST", "week": "2026-02-04", "total": 9141, "actioned": 694}, {"region": "NORTH WEST", "week": "2026-02-11", "total": 8428, "actioned": 1139}, {"region": "NORTH WEST", "week": "2026-02-18", "total": 9050, "actioned": 539}, {"region": "NORTH WEST", "week": "2026-02-25", "total": 10042, "actioned": 583}, {"region": "NORTH WEST", "week": "2026-03-04", "total": 9087, "actioned": 380}, {"region": "NORTH WEST", "week": "2026-03-11", "total": 9572, "actioned": 118}, {"region": "NORTH WEST", "week": "2026-03-18", "total": 7924, "actioned": 166}, {"region": "NORTH WEST", "week": "2026-03-25", "total": 8937, "actioned": 125}, {"region": "NORTH WEST", "week": "2026-04-01", "total": 7252, "actioned": 52}, {"region": "NORTH WEST", "week": "2026-04-08", "total": 7878, "actioned": 53}, {"region": "NORTH WEST", "week": "2026-04-15", "total": 8586, "actioned": 128}, {"region": "NORTH WEST", "week": "2026-04-29", "total": 3615, "actioned": 9}, {"region": "NORTH WEST", "week": "2026-05-06", "total": 4612, "actioned": 140}, {"region": "NORTH WEST", "week": "2026-05-13", "total": 5223, "actioned": 199}, {"region": "NORTH WEST", "week": "2026-05-20", "total": 6777, "actioned": 91}, {"region": "NORTH WEST", "week": "2026-05-27", "total": 6843, "actioned": 160}, {"region": "NORTH WEST", "week": "2026-06-03", "total": 6747, "actioned": 116}, {"region": "NORTH WEST", "week": "2026-06-10", "total": 6466, "actioned": 104}, {"region": "NORTH WEST", "week": "2026-06-17", "total": 7059, "actioned": 463}, {"region": "PORT ELIZABETH", "week": "2025-10-01", "total": 14, "actioned": 14}, {"region": "PORT ELIZABETH", "week": "2025-10-09", "total": 1, "actioned": 1}, {"region": "PORT ELIZABETH", "week": "2025-10-22", "total": 6, "actioned": 3}, {"region": "PORT ELIZABETH", "week": "2025-10-30", "total": 3895, "actioned": 0}, {"region": "PORT ELIZABETH", "week": "2025-11-07", "total": 3533, "actioned": 54}, {"region": "PORT ELIZABETH", "week": "2025-11-14", "total": 1854, "actioned": 79}, {"region": "PORT ELIZABETH", "week": "2025-11-20", "total": 5, "actioned": 5}, {"region": "PORT ELIZABETH", "week": "2025-11-27", "total": 8, "actioned": 8}, {"region": "PORT ELIZABETH", "week": "2025-12-05", "total": 1259, "actioned": 92}, {"region": "PORT ELIZABETH", "week": "2025-12-12", "total": 1084, "actioned": 17}, {"region": "PORT ELIZABETH", "week": "2025-12-17", "total": 2323, "actioned": 104}, {"region": "PORT ELIZABETH", "week": "2026-01-14", "total": 1156, "actioned": 25}, {"region": "PORT ELIZABETH", "week": "2026-01-21", "total": 492, "actioned": 1}, {"region": "PORT ELIZABETH", "week": "2026-01-28", "total": 3093, "actioned": 698}, {"region": "PORT ELIZABETH", "week": "2026-02-04", "total": 6892, "actioned": 507}, {"region": "PORT ELIZABETH", "week": "2026-02-11", "total": 7182, "actioned": 474}, {"region": "PORT ELIZABETH", "week": "2026-02-18", "total": 7139, "actioned": 237}, {"region": "PORT ELIZABETH", "week": "2026-02-25", "total": 7362, "actioned": 443}, {"region": "PORT ELIZABETH", "week": "2026-03-04", "total": 6840, "actioned": 544}, {"region": "PORT ELIZABETH", "week": "2026-03-11", "total": 6761, "actioned": 561}, {"region": "PORT ELIZABETH", "week": "2026-03-18", "total": 6179, "actioned": 539}, {"region": "PORT ELIZABETH", "week": "2026-03-25", "total": 7250, "actioned": 279}, {"region": "PORT ELIZABETH", "week": "2026-04-01", "total": 5557, "actioned": 362}, {"region": "PORT ELIZABETH", "week": "2026-04-08", "total": 5862, "actioned": 609}, {"region": "PORT ELIZABETH", "week": "2026-04-15", "total": 6225, "actioned": 1069}, {"region": "PORT ELIZABETH", "week": "2026-04-29", "total": 2631, "actioned": 412}, {"region": "PORT ELIZABETH", "week": "2026-05-06", "total": 3323, "actioned": 531}, {"region": "PORT ELIZABETH", "week": "2026-05-13", "total": 3421, "actioned": 740}, {"region": "PORT ELIZABETH", "week": "2026-05-20", "total": 5158, "actioned": 704}, {"region": "PORT ELIZABETH", "week": "2026-05-27", "total": 5444, "actioned": 1216}, {"region": "PORT ELIZABETH", "week": "2026-06-03", "total": 5058, "actioned": 674}, {"region": "PORT ELIZABETH", "week": "2026-06-10", "total": 5263, "actioned": 839}, {"region": "PORT ELIZABETH", "week": "2026-06-17", "total": 5122, "actioned": 812}, {"region": "SWD", "week": "2025-10-01", "total": 20, "actioned": 18}, {"region": "SWD", "week": "2025-10-15", "total": 66, "actioned": 66}, {"region": "SWD", "week": "2025-10-22", "total": 83, "actioned": 81}, {"region": "SWD", "week": "2025-10-30", "total": 2383, "actioned": 156}, {"region": "SWD", "week": "2025-11-07", "total": 2225, "actioned": 271}, {"region": "SWD", "week": "2025-11-14", "total": 1363, "actioned": 132}, {"region": "SWD", "week": "2025-11-20", "total": 2, "actioned": 2}, {"region": "SWD", "week": "2025-11-27", "total": 2, "actioned": 2}, {"region": "SWD", "week": "2025-12-05", "total": 1150, "actioned": 166}, {"region": "SWD", "week": "2025-12-12", "total": 836, "actioned": 23}, {"region": "SWD", "week": "2025-12-17", "total": 1464, "actioned": 143}, {"region": "SWD", "week": "2026-01-14", "total": 878, "actioned": 84}, {"region": "SWD", "week": "2026-01-21", "total": 326, "actioned": 19}, {"region": "SWD", "week": "2026-01-28", "total": 2003, "actioned": 199}, {"region": "SWD", "week": "2026-02-04", "total": 3157, "actioned": 199}, {"region": "SWD", "week": "2026-02-11", "total": 3556, "actioned": 278}, {"region": "SWD", "week": "2026-02-18", "total": 3396, "actioned": 244}, {"region": "SWD", "week": "2026-02-25", "total": 3682, "actioned": 228}, {"region": "SWD", "week": "2026-03-04", "total": 3442, "actioned": 332}, {"region": "SWD", "week": "2026-03-11", "total": 3348, "actioned": 273}, {"region": "SWD", "week": "2026-03-18", "total": 3069, "actioned": 171}, {"region": "SWD", "week": "2026-03-25", "total": 3761, "actioned": 378}, {"region": "SWD", "week": "2026-04-01", "total": 2483, "actioned": 292}, {"region": "SWD", "week": "2026-04-08", "total": 2729, "actioned": 444}, {"region": "SWD", "week": "2026-04-15", "total": 3367, "actioned": 819}, {"region": "SWD", "week": "2026-04-29", "total": 1627, "actioned": 211}, {"region": "SWD", "week": "2026-05-06", "total": 1571, "actioned": 472}, {"region": "SWD", "week": "2026-05-13", "total": 1475, "actioned": 523}, {"region": "SWD", "week": "2026-05-20", "total": 2706, "actioned": 567}, {"region": "SWD", "week": "2026-05-27", "total": 3092, "actioned": 859}, {"region": "SWD", "week": "2026-06-03", "total": 2854, "actioned": 696}, {"region": "SWD", "week": "2026-06-10", "total": 2833, "actioned": 518}, {"region": "SWD", "week": "2026-06-17", "total": 2896, "actioned": 362}, {"region": "WESTERN CAPE", "week": "2025-10-01", "total": 32, "actioned": 32}, {"region": "WESTERN CAPE", "week": "2025-10-09", "total": 4, "actioned": 4}, {"region": "WESTERN CAPE", "week": "2025-10-15", "total": 18, "actioned": 18}, {"region": "WESTERN CAPE", "week": "2025-10-22", "total": 10, "actioned": 10}, {"region": "WESTERN CAPE", "week": "2025-10-30", "total": 18925, "actioned": 6}, {"region": "WESTERN CAPE", "week": "2025-11-07", "total": 17194, "actioned": 11}, {"region": "WESTERN CAPE", "week": "2025-11-14", "total": 9869, "actioned": 417}, {"region": "WESTERN CAPE", "week": "2025-11-20", "total": 25, "actioned": 25}, {"region": "WESTERN CAPE", "week": "2025-11-27", "total": 23, "actioned": 23}, {"region": "WESTERN CAPE", "week": "2025-12-05", "total": 6875, "actioned": 81}, {"region": "WESTERN CAPE", "week": "2025-12-12", "total": 5514, "actioned": 11}, {"region": "WESTERN CAPE", "week": "2025-12-17", "total": 7510, "actioned": 61}, {"region": "WESTERN CAPE", "week": "2026-01-14", "total": 6340, "actioned": 317}, {"region": "WESTERN CAPE", "week": "2026-01-21", "total": 2113, "actioned": 213}, {"region": "WESTERN CAPE", "week": "2026-01-28", "total": 15122, "actioned": 1840}, {"region": "WESTERN CAPE", "week": "2026-02-04", "total": 40146, "actioned": 1871}, {"region": "WESTERN CAPE", "week": "2026-02-11", "total": 37127, "actioned": 2088}, {"region": "WESTERN CAPE", "week": "2026-02-18", "total": 41248, "actioned": 2162}, {"region": "WESTERN CAPE", "week": "2026-02-25", "total": 45325, "actioned": 1612}, {"region": "WESTERN CAPE", "week": "2026-03-04", "total": 39441, "actioned": 1319}, {"region": "WESTERN CAPE", "week": "2026-03-11", "total": 41245, "actioned": 980}, {"region": "WESTERN CAPE", "week": "2026-03-18", "total": 35793, "actioned": 603}, {"region": "WESTERN CAPE", "week": "2026-03-25", "total": 40856, "actioned": 495}, {"region": "WESTERN CAPE", "week": "2026-04-01", "total": 32759, "actioned": 310}, {"region": "WESTERN CAPE", "week": "2026-04-08", "total": 35903, "actioned": 328}, {"region": "WESTERN CAPE", "week": "2026-04-15", "total": 39660, "actioned": 353}, {"region": "WESTERN CAPE", "week": "2026-04-29", "total": 15022, "actioned": 141}, {"region": "WESTERN CAPE", "week": "2026-05-06", "total": 18977, "actioned": 275}, {"region": "WESTERN CAPE", "week": "2026-05-13", "total": 19528, "actioned": 545}, {"region": "WESTERN CAPE", "week": "2026-05-20", "total": 28182, "actioned": 142}, {"region": "WESTERN CAPE", "week": "2026-05-27", "total": 31253, "actioned": 598}, {"region": "WESTERN CAPE", "week": "2026-06-03", "total": 29758, "actioned": 589}, {"region": "WESTERN CAPE", "week": "2026-06-10", "total": 31864, "actioned": 653}, {"region": "WESTERN CAPE", "week": "2026-06-17", "total": 32352, "actioned": 667}]</script>
 
 
   <div class="tab-panel" id="tab-actionimpact">
@@ -713,7 +720,7 @@
   </div>
 
 
-<script>
+<script defer>
 // =========================================================================
 // CONFIG — fill these in once the Azure AD app registration is confirmed
 // =========================================================================
@@ -792,13 +799,31 @@ let siteId = null;
 let driveId = null;
 
 async function resolveSiteAndDrive(token) {
+  // Site/drive IDs never change for this tenant — cache them for the browser
+  // session so a page refresh doesn't re-resolve them on every load.
+  const cached = sessionStorage.getItem('stockfix_site_drive');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.siteId && parsed.driveId) { siteId = parsed.siteId; driveId = parsed.driveId; return; }
+    } catch (e) { /* fall through and re-resolve */ }
+  }
+  // $expand=drive returns the site's default drive inline, in the same response,
+  // instead of a separate round-trip to /sites/{id}/drive. One less network hop
+  // on every sign-in / cold load.
   const site = await graphFetch(
-    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOSTNAME}:${SHAREPOINT_SITE_PATH}`,
+    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOSTNAME}:${SHAREPOINT_SITE_PATH}?$expand=drive`,
     token
   );
   siteId = site.id;
-  const drive = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive`, token);
-  driveId = drive.id;
+  driveId = site.drive && site.drive.id;
+  if (!driveId) {
+    // Fallback in case $expand isn't honoured for some reason — keeps the old
+    // two-step behaviour as a safety net rather than failing outright.
+    const drive = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive`, token);
+    driveId = drive.id;
+  }
+  try { sessionStorage.setItem('stockfix_site_drive', JSON.stringify({ siteId, driveId })); } catch (e) { /* storage full/unavailable — non-fatal */ }
 }
 
 async function fetchJsonFile(token, relativePath) {
@@ -808,11 +833,82 @@ async function fetchJsonFile(token, relativePath) {
   return graphFetch(url, token);
 }
 
+// =========================================================================
+// Decompress worker — inflating + JSON-parsing a full week (often 100k+ lines)
+// on the main thread freezes the page for the duration: no chart paints, no
+// button clicks register, nothing. Doing it in a Web Worker keeps the UI
+// responsive (spinners animate, tab switches work) while the heavy lifting
+// happens off-thread. Built inline via Blob so this stays a single file.
+// =========================================================================
+let jsonlWorker = null;
+let jsonlWorkerReqId = 0;
+const jsonlWorkerPending = new Map();
+
+function getJsonlWorker() {
+  if (jsonlWorker) return jsonlWorker;
+  const workerSrc = `
+    importScripts('https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js');
+    onmessage = function(e) {
+      const { id, buf } = e.data;
+      try {
+        const text = pako.inflate(new Uint8Array(buf), { to: 'string' });
+        const rows = text.split('\\n').filter(Boolean).map(function(line) { return JSON.parse(line); });
+        postMessage({ id, rows });
+      } catch (err) {
+        postMessage({ id, error: (err && err.message) || String(err) });
+      }
+    };
+  `;
+  const blob = new Blob([workerSrc], { type: 'application/javascript' });
+  jsonlWorker = new Worker(URL.createObjectURL(blob));
+  jsonlWorker.onmessage = (e) => {
+    const { id, rows, error } = e.data;
+    const pending = jsonlWorkerPending.get(id);
+    if (!pending) return;
+    jsonlWorkerPending.delete(id);
+    if (error) pending.reject(new Error(error)); else pending.resolve(rows);
+  };
+  jsonlWorker.onerror = (e) => {
+    // Worker itself failed to start/run (e.g. importScripts blocked) — reject
+    // every in-flight request so callers can fall back rather than hang.
+    jsonlWorkerPending.forEach(p => p.reject(new Error('jsonl worker error: ' + e.message)));
+    jsonlWorkerPending.clear();
+    jsonlWorker = null;
+  };
+  return jsonlWorker;
+}
+
+function inflateAndParseOffThread(buf) {
+  return new Promise((resolve, reject) => {
+    try {
+      const worker = getJsonlWorker();
+      const id = ++jsonlWorkerReqId;
+      jsonlWorkerPending.set(id, { resolve, reject });
+      // Deliberately NOT using a transferable here (no [buf] transfer list):
+      // transferring would detach `buf` on the main thread, so if the worker
+      // errors mid-parse the fallback below would have no data left to retry
+      // with. The structured-clone copy costs a little more but keeps the
+      // fallback path correct.
+      worker.postMessage({ id, buf });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 async function fetchGzJsonlFile(token, relativePath) {
   const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
   const buf = await graphFetch(url, token, true);
-  const text = pako.inflate(new Uint8Array(buf), { to: "string" });
-  return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
+  try {
+    return await inflateAndParseOffThread(buf);
+  } catch (e) {
+    // Worker unavailable for some reason (locked-down browser policy, etc.) —
+    // fall back to doing it on the main thread so the dashboard still works,
+    // just without the responsiveness win.
+    console.warn('Off-thread parse failed, falling back to main thread:', e);
+    const text = pako.inflate(new Uint8Array(buf), { to: "string" });
+    return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
+  }
 }
 
 // =========================================================================
@@ -1122,6 +1218,16 @@ const IMPACT_ICONS = {
   oos: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
 };
 
+// Shared across every KPI card (Overview, Leaderboard, SKU Insights, Action
+// Impact) so long values (a manager's name, a reason code) shrink the same
+// way everywhere instead of each tab having its own one-off threshold.
+function kpiValueStyle(value){
+  const len = String(value ?? '').length;
+  if (len > 16) return 'font-size:13px;';
+  if (len > 10) return 'font-size:16px;';
+  return '';
+}
+
 function renderIconKpiRow(){
   // Use rowsIgnoring('status') so completion rate is always vs ALL tasks, not just filtered status
   const rows = rowsIgnoring('status');
@@ -1180,7 +1286,7 @@ function renderIconKpiRow(){
       <div class="icon">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
-        <div class="kpi-value">${c.value}</div>
+        <div class="kpi-value" style="${kpiValueStyle(c.value)}">${c.value}</div>
         ${c.delta}
       </div>
     </div>
@@ -1859,7 +1965,7 @@ function renderSkuInsights(){
     { label: 'SKUs with issues', value: problemSkus.toLocaleString(), cls: 'c-overstock' },
     { label: 'Total lines', value: rows.length.toLocaleString(), cls: '' },
     { label: 'Top reason code', value: topReason ? topReason[0] : '\u2014', cls: 'c-oos' },
-  ].map(c => `<div class="kpi-card ${c.cls}"><div class="label">${c.label}</div><div class="value" style="font-size:18px;">${c.value}</div></div>`).join('');
+  ].map(c => `<div class="kpi-card ${c.cls}"><div class="label">${c.label}</div><div class="value" style="${kpiValueStyle(c.value)}">${c.value}</div></div>`).join('');
 
   // Top problem SKUs chart
   const topSkus = skuEntries.map(([name, g]) => [name, problemCount(g)]).sort((a,b)=>b[1]-a[1]).slice(0, 15);
@@ -2205,7 +2311,7 @@ function aiRender(result){
     {lbl:'Open Follow-Ups', val:aiFmt(open), note:'Feedback captured, still open', cls:'orange'},
   ];
   const kpiEl = document.getElementById('aiKpiRow');
-  if (kpiEl) kpiEl.innerHTML = kpis.map(k => `<div class="ai-kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div><div class="note">${k.note}</div></div>`).join('');
+  if (kpiEl) kpiEl.innerHTML = kpis.map(k => `<div class="ai-kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val" style="${kpiValueStyle(k.val)}">${k.val}</div><div class="note">${k.note}</div></div>`).join('');
 
   // Each panel below renders independently — if one throws (e.g. a Chart.js
   // "canvas already in use" error on fast re-render), it must not prevent the
@@ -2602,8 +2708,8 @@ async function renderLeaderboardTab() {
       <div class="icon" style="background:${c.orange ? '#FF6C0E' : '#003B71'};">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
-        <div class="kpi-value" style="font-size:${c.value.length > 12 ? '12px' : '16px'}">${c.value}</div>
-        <div style="font-size:8.5px;color:#8a9aab;margin-top:1px;">${c.sub}</div>
+        <div class="kpi-value" style="${kpiValueStyle(c.value)}">${c.value}</div>
+        <div class="kpi-sub">${c.sub}</div>
       </div>
     </div>`).join('');
 
