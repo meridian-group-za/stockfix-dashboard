@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockFix Field Performance Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 
@@ -296,7 +292,6 @@
   <button class="tab-btn active" data-tab="overview">Overview</button>
   <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
   <button class="tab-btn" data-tab="rawdata">Store-Level Detail</button>
-  <button class="tab-btn" data-tab="skuinsights">SKU Insights</button>
   <button class="tab-btn" data-tab="actionimpact">Action Impact</button>
 </div>
 
@@ -533,32 +528,6 @@
   </div>
 
 
-  <div class="tab-panel" id="tab-skuinsights">
-    <div class="kpi-row" id="skuKpiRow" style="grid-template-columns:repeat(4,1fr);"></div>
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Top problem SKUs <span class="tag" id="topSkuTag"></span></h2>
-        <canvas id="topSkuChart" height="280"></canvas>
-      </div>
-      <div class="panel">
-        <h2>SKU by reason code <span class="tag">selected week</span></h2>
-        <canvas id="reasonCodeChart" height="280"></canvas>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>SKU drilldown <span class="tag" id="skuDrilldownTag"></span></h2>
-      <div class="filters" style="margin-bottom:12px;">
-        <input type="text" id="skuSearchBox" class="grow" placeholder="Search article or barcode...">
-      </div>
-      <div class="table-scroll" style="max-height:480px;">
-        <table>
-          <thead><tr><th>Article</th><th>Barcode</th><th>Total Lines</th><th>Out of Stock</th><th>Overstock</th><th>Understock</th><th>No Sales</th><th>Optimal</th><th>Top action</th></tr></thead>
-          <tbody id="skuDrilldownBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <!-- ================================================================== -->
   <!-- LEADERBOARD TAB                                                      -->
   <!-- ================================================================== -->
@@ -720,7 +689,11 @@
   </div>
 
 
-<script defer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script>
 // =========================================================================
 // CONFIG — fill these in once the Azure AD app registration is confirmed
 // =========================================================================
@@ -1083,7 +1056,6 @@ function initUI() {
   document.getElementById('searchBox').addEventListener('input', e => { state.search = e.target.value; state.page = 1; renderTable(); });
   document.getElementById('prevPage').addEventListener('click', () => { if (state.page>1){ state.page--; renderTable(); } });
   document.getElementById('nextPage').addEventListener('click', () => { state.page++; renderTable(); });
-  document.getElementById('skuSearchBox').addEventListener('input', e => { skuSearch = e.target.value; renderSkuInsights(); });
   document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
   document.getElementById('exportXlsxBtn').addEventListener('click', exportXlsx);
 
@@ -1933,84 +1905,6 @@ function isActioned(status){
 function isPending(status){ return (status||'').includes('Pending'); }
 function isEscalated(status){ return (status||'').includes('Escalated'); }
 
-function renderSkuInsights(){
-  const rows = filteredRows();
-  const skuGroups = {};
-  rows.forEach(r => {
-    const key = r.article || 'Unknown';
-    skuGroups[key] = skuGroups[key] || { total: 0, oos: 0, over: 0, under: 0, noSales: 0, optimal: 0, barcode: r.barcode, actions: {} };
-    const g = skuGroups[key];
-    g.total++;
-    if (r.classification === 'Out of Stock') g.oos++;
-    else if (r.classification === 'Overstock') g.over++;
-    else if (r.classification === 'Understock') g.under++;
-    else if (r.classification === 'No Sales (Idle Stock)' || r.classification === 'No Sales (Dead Stock)') g.noSales++;
-    else if (r.classification === 'Optimal') g.optimal++;
-    const a = r.action || 'Unknown';
-    g.actions[a] = (g.actions[a]||0) + 1;
-  });
-
-  const skuEntries = Object.entries(skuGroups);
-  const problemCount = (g) => g.oos + g.over + g.under + g.noSales;
-
-  // KPI cards
-  const totalSkus = skuEntries.length;
-  const problemSkus = skuEntries.filter(([,g]) => problemCount(g) > 0).length;
-  const reasonCounts = {};
-  rows.forEach(r => { const rc = r.reasonCode || 'None'; reasonCounts[rc] = (reasonCounts[rc]||0) + 1; });
-  const topReason = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0];
-
-  document.getElementById('skuKpiRow').innerHTML = [
-    { label: 'SKUs tracked', value: totalSkus.toLocaleString(), cls: '' },
-    { label: 'SKUs with issues', value: problemSkus.toLocaleString(), cls: 'c-overstock' },
-    { label: 'Total lines', value: rows.length.toLocaleString(), cls: '' },
-    { label: 'Top reason code', value: topReason ? topReason[0] : '\u2014', cls: 'c-oos' },
-  ].map(c => `<div class="kpi-card ${c.cls}"><div class="label">${c.label}</div><div class="value" style="${kpiValueStyle(c.value)}">${c.value}</div></div>`).join('');
-
-  // Top problem SKUs chart
-  const topSkus = skuEntries.map(([name, g]) => [name, problemCount(g)]).sort((a,b)=>b[1]-a[1]).slice(0, 15);
-  const ctx = document.getElementById('topSkuChart');
-  if (topSkuChartInstance) topSkuChartInstance.destroy();
-  topSkuChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: topSkus.map(s=>s[0]), datasets: [{ data: topSkus.map(s=>s[1]), backgroundColor: '#c93b3b' }] },
-    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display:false } },
-      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 9.5 } } } } },
-  });
-  const tst = document.getElementById('topSkuTag'); if(tst) tst.textContent = `top ${topSkus.length} \u00b7 week ${state.week}`;
-
-  // SKU by reason code chart
-  const reasonLabels = Object.keys(reasonCounts).sort((a,b)=>reasonCounts[b]-reasonCounts[a]).slice(0, 12);
-  const ctx2 = document.getElementById('reasonCodeChart');
-  if (reasonCodeChartInstance) reasonCodeChartInstance.destroy();
-  reasonCodeChartInstance = new Chart(ctx2, {
-    type: 'bar',
-    data: { labels: reasonLabels, datasets: [{ data: reasonLabels.map(l=>reasonCounts[l]), backgroundColor: '#FF6C0E' }] },
-    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display:false } },
-      scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } },
-  });
-
-  // SKU drilldown table
-  let filtered = skuEntries;
-  if (skuSearch) {
-    const s = skuSearch.toLowerCase();
-    filtered = filtered.filter(([name, g]) => name.toLowerCase().includes(s) || String(g.barcode||'').includes(s));
-  }
-  filtered = filtered.sort((a,b) => problemCount(b[1]) - problemCount(a[1])).slice(0, 200);
-  const body = document.getElementById('skuDrilldownBody');
-  if (filtered.length === 0) {
-    body.innerHTML = `<tr><td colspan="9" class="muted" style="padding:20px;text-align:center;">No SKUs match these filters.</td></tr>`;
-  } else {
-    body.innerHTML = filtered.map(([name, g]) => {
-      const topAction = Object.entries(g.actions).sort((a,b)=>b[1]-a[1])[0];
-      return `<tr><td>${name}</td><td>${g.barcode||''}</td><td>${g.total.toLocaleString()}</td>
-        <td>${g.oos}</td><td>${g.over}</td><td>${g.under}</td><td>${g.noSales}</td><td>${g.optimal}</td>
-        <td>${topAction ? topAction[0] : ''}</td></tr>`;
-    }).join('');
-  }
-  const sdt = document.getElementById('skuDrilldownTag'); if(sdt) sdt.textContent = `${filtered.length.toLocaleString()} of ${totalSkus.toLocaleString()} SKUs`;
-}
-
 // ---------- Store Deep Dive ----------
 let storeSelectorPopulated = false;
 
@@ -2119,7 +2013,6 @@ function rerenderAll(){
   safeRender('bannerRegionAnalytics', renderBannerRegionAnalytics);
   // renderRepManagerPerformance is superseded by renderLeaderboardTab — stub to prevent ReferenceError
   safeRender('repManagerPerformance', function renderRepManagerPerformance(){});
-  safeRender('skuInsights', renderSkuInsights);
   safeRender('actionedPendingBars', renderActionedPendingBars);
   safeRender('classificationSummaryTable', renderClassificationSummaryTable);
   safeRender('actionTakenChart', renderActionTakenChart);
