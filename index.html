@@ -59,7 +59,14 @@
 
   /* KPI ROW */
   .icon-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-  .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
+  .icon-kpi-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
+  /* Same accent palette and class names as .ai-kpi, so a card is the same color language on every tab */
+  .icon-kpi-card.orange{border-left-color:var(--orange);}
+  .icon-kpi-card.green{border-left-color:var(--c-optimal);}
+  .icon-kpi-card.amber{border-left-color:var(--c-overstock);}
+  .icon-kpi-card.blue{border-left-color:var(--c-understock);}
+  .icon-kpi-card.purple{border-left-color:var(--c-negative);}
+  .icon-kpi-card.red{border-left-color:var(--c-oos);}
   .icon-kpi-card .icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#003B71;flex-shrink:0;color:#fff;}
   .icon-kpi-card .icon svg{width:17px;height:17px;stroke:#fff;}
   .icon-kpi-card .kpi-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;}
@@ -67,15 +74,6 @@
   .icon-kpi-card .kpi-delta,.icon-kpi-card .kpi-sub{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
   .delta-bad{color:var(--c-oos)!important;}
   .delta-good{color:var(--c-optimal)!important;}
-
-  /* IMPACT BANNER */
-  .impact-banner{background:linear-gradient(135deg,var(--navy),#092849);border-radius:14px;padding:13px 16px;margin-bottom:8px;color:#fff;display:grid;grid-template-columns:1.65fr repeat(4,1fr);gap:14px;align-items:center;box-shadow:0 10px 24px rgba(6,26,46,.18);}
-  .impact-banner-eyebrow{font-size:9px;letter-spacing:.55px;color:#92b0ca;text-transform:uppercase;font-weight:800;}
-  .impact-banner-title{font-size:14px;font-weight:900;margin-top:3px;line-height:1.35;}
-  .impact-banner-note{font-size:10px;color:#b7cada;margin-top:3px;}
-  .impact-metric{border-left:1px solid rgba(255,255,255,.14);padding-left:13px;}
-  .impact-metric .num{font-size:23px;color:var(--orange);font-weight:900;line-height:1;}
-  .impact-metric .lbl{font-size:9.5px;color:#d6e3ee;margin-top:4px;font-weight:700;}
 
   /* CLASSIFICATION CARDS — left border style */
   .sparkline-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
@@ -98,7 +96,7 @@
   .spark-canvas-wrap{height:0;overflow:hidden;} /* hide sparklines — replaced by status card style */
 
   /* PANELS */
-  .panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-width:0;}
   .panel h2{font-size:12px;margin:0 0 9px;color:var(--navy);font-weight:900;display:flex;justify-content:space-between;align-items:center;padding-bottom:7px;border-bottom:1px solid #edf1f5;}
   .panel h2 .tag{font-size:9px;color:#8a9aab;font-weight:700;}
 
@@ -220,9 +218,11 @@
 .ai-kpi .val{font-size:20px;font-weight:900;color:var(--navy);margin-top:3px;line-height:1.05;}
 .ai-kpi .note{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
 .ai-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
-.ai-panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);}
+.ai-panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:0 3px 12px rgba(10,39,71,.06);min-width:0;display:flex;flex-direction:column;}
 .ai-panel h2{font-size:12px;margin:0 0 9px;color:var(--navy);font-weight:900;display:flex;justify-content:space-between;align-items:center;padding-bottom:7px;border-bottom:1px solid #edf1f5;}
 .ai-panel h2 .tag{font-size:9px;color:#8a9aab;font-weight:700;}
+#aiIssueBars{flex:1;display:flex;flex-direction:column;}
+.ai-issue-rows{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;}
 .ai-table-scroll{overflow:auto;border-radius:8px;border:1px solid var(--line);}
 .ai-table{width:100%;border-collapse:collapse;font-size:9.4px;}
 .ai-table thead th{background:var(--navy2);color:#fff;text-align:left;padding:6px 7px;text-transform:uppercase;letter-spacing:.25px;font-size:8.3px;font-weight:800;white-space:nowrap;}
@@ -241,6 +241,11 @@
 .ai-issue-open{height:100%;background:#dce5ee;}
 .ai-issue-num{font-size:9px;color:var(--muted);font-weight:800;text-align:right;}
 .ai-mini-legend{display:flex;gap:12px;margin-top:8px;font-size:9px;color:var(--muted);font-weight:800;}
+.ai-magnitude-stat{border-left:4px solid var(--navy);padding:2px 0 2px 12px;}
+.ai-magnitude-stat.teal{border-left-color:#2c8fae;}
+.ai-magnitude-stat .lbl{font-size:8.7px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:800;}
+.ai-magnitude-stat .val{font-size:21px;font-weight:900;color:var(--navy);margin-top:2px;line-height:1.05;}
+.ai-magnitude-stat .val .unit{font-size:11px;color:#8a9aab;font-weight:700;margin-left:3px;}
 .ai-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px;}
 .ai-loader{background:#fff7e6;border:1px solid #f0d28a;color:#7a5a05;font-size:11px;padding:10px 12px;border-radius:8px;margin-bottom:8px;font-weight:700;}
 .ai-empty{padding:22px;text-align:center;color:#8a9aab;font-size:11px;font-weight:700;}
@@ -257,8 +262,14 @@
 .sc-threshold select{height:26px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:10px;color:#30475c;font-family:inherit;}
 .sc-table tbody tr{cursor:pointer;}
 .sc-table tbody tr:hover{background:#eef4fa;}
+.sc-sku-link{color:var(--navy);text-decoration:underline;text-underline-offset:2px;font-weight:700;}
+.sc-table tbody tr:hover .sc-sku-link{color:#001d3d;}
 .sc-stores-badge{display:inline-block;background:#fde9e0;color:#b64d00;border-radius:999px;padding:3px 9px;font-weight:900;font-size:9.5px;}
 .sc-stores-badge.high{background:#fbdada;color:#a11d1d;}
+.sc-status-toggle{display:flex;border:1px solid #d4dde6;border-radius:6px;overflow:hidden;}
+.sc-status-toggle button{background:#f0f3f6;border:none;border-right:1px solid #d4dde6;padding:5px 10px;font-size:9.5px;font-weight:800;cursor:pointer;font-family:inherit;color:#5c6c7c;}
+.sc-status-toggle button:last-child{border-right:none;}
+.sc-status-toggle button.active{background:var(--navy);color:#fff;}
 
 /* Modal overlay for SKU store drill-down */
 .sc-modal-overlay{position:fixed;inset:0;background:rgba(5,18,40,0.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:24px;}
@@ -296,14 +307,14 @@
 </div>
 
 <div class="filter-bar">
-  <div class="filter-group"><label>Client</label><select id="clientFilter"><option value="__all__">All clients</option></select></div>
-  <div class="filter-group"><label>Banner</label><select id="bannerFilter"><option value="__all__">All banners</option></select></div>
-  <div class="filter-group"><label>Region</label><select id="regionFilter"><option value="__all__">All regions</option></select></div>
-  <div class="filter-group"><label>Classification</label><select id="classFilter"><option value="__all__">All classifications</option></select></div>
-  <div class="filter-group"><label>Status</label><select id="statusFilter"><option value="__all__">All action statuses</option></select></div>
-  <div class="filter-group"><label>Week</label><select id="weekFilter"></select></div>
+  <div class="filter-group"><label for="clientFilter">Client</label><select id="clientFilter"><option value="__all__">All clients</option></select></div>
+  <div class="filter-group"><label for="bannerFilter">Banner</label><select id="bannerFilter"><option value="__all__">All banners</option></select></div>
+  <div class="filter-group"><label for="regionFilter">Region</label><select id="regionFilter"><option value="__all__">All regions</option></select></div>
+  <div class="filter-group"><label for="classFilter">Classification</label><select id="classFilter"><option value="__all__">All classifications</option></select></div>
+  <div class="filter-group"><label for="statusFilter">Status</label><select id="statusFilter"><option value="__all__">All action statuses</option></select></div>
+  <div class="filter-group"><label for="weekFilter">Week</label><select id="weekFilter"></select></div>
   <div class="filter-group" style="flex:1;min-width:200px;">
-    <input type="text" id="searchBox" style="width:100%;" placeholder="Search store, article, barcode, rep...">
+    <input type="text" id="searchBox" style="width:100%;" placeholder="Search store, article, barcode, rep..." aria-label="Search store, article, barcode, rep">
   </div>
 </div>
 
@@ -315,9 +326,6 @@
 
     <!-- ABOVE FOLD: 4. Executive KPI row -->
     <div class="icon-kpi-row" id="iconKpiRow"></div>
-
-    <!-- ABOVE FOLD: Impact banner -->
-    <div class="impact-banner" id="impactBanner"></div>
 
     <!-- ABOVE FOLD: 5. Classification ribbon -->
     <div class="panel" style="padding:9px 12px 8px;">
@@ -381,19 +389,19 @@
     <!-- Filter bar -->
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#60758a;text-transform:uppercase;letter-spacing:.4px;">
-        Region
+        <label for="lbRegionFilter">Region</label>
         <select id="lbRegionFilter" style="font-size:11px;padding:5px 8px;border:1px solid #d4dde6;border-radius:6px;color:#22384b;background:#fff;font-family:inherit;">
           <option value="__all__">All</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#60758a;text-transform:uppercase;letter-spacing:.4px;">
-        Line Manager
+        <label for="lbManagerFilter">Line Manager</label>
         <select id="lbManagerFilter" style="font-size:11px;padding:5px 8px;border:1px solid #d4dde6;border-radius:6px;color:#22384b;background:#fff;font-family:inherit;">
           <option value="__all__">All</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#60758a;text-transform:uppercase;letter-spacing:.4px;">
-        Rep Name
+        <label for="lbRepSearch">Rep Name</label>
         <input id="lbRepSearch" type="text" placeholder="Search rep..." style="font-size:11px;padding:5px 8px;border:1px solid #d4dde6;border-radius:6px;color:#22384b;background:#fff;font-family:inherit;width:130px;">
       </div>
       <button id="lbClearFilters" style="margin-left:auto;font-size:10px;font-weight:700;color:#60758a;background:none;border:1px solid #d4dde6;border-radius:6px;padding:5px 10px;cursor:pointer;font-family:inherit;">✕ Clear Filters</button>
@@ -433,7 +441,10 @@
         <!-- Manager heatmap -->
         <div class="panel" style="margin-bottom:8px;">
           <h2>Manager Weekly Performance Heatmap <span class="tag" id="lbManagerHeatmapTag"></span>
-            <span style="float:right;font-size:9px;color:#60758a;font-weight:600;">% Stores Actioned &nbsp;|&nbsp; % Articles Actioned</span>
+            <span style="float:right;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:9px;color:#60758a;font-weight:600;">% Stores Actioned &nbsp;|&nbsp; % Articles Actioned</span>
+              <button id="lbExportManagerBtn" class="ai-btn" style="padding:3px 8px;font-size:9px;">↓ Excel</button>
+            </span>
           </h2>
           <div class="table-scroll">
             <table id="lbManagerHeatmap" style="min-width:700px;">
@@ -446,7 +457,10 @@
         <!-- Rep heatmap -->
         <div class="panel">
           <h2>Rep Weekly Performance Heatmap <span class="tag" id="lbRepHeatmapTag"></span>
-            <span style="float:right;font-size:9px;color:#60758a;font-weight:600;">% Stores Actioned &nbsp;|&nbsp; % Articles Actioned</span>
+            <span style="float:right;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:9px;color:#60758a;font-weight:600;">% Stores Actioned &nbsp;|&nbsp; % Articles Actioned</span>
+              <button id="lbExportRepBtn" class="ai-btn" style="padding:3px 8px;font-size:9px;">↓ Excel</button>
+            </span>
           </h2>
           <div class="table-scroll" style="max-height:340px;">
             <table id="lbRepHeatmap" style="min-width:700px;">
@@ -470,7 +484,9 @@
 
         <!-- Regional summary heatmap -->
         <div class="panel">
-          <h2>Regional Performance Summary</h2>
+          <h2>Regional Performance Summary
+            <button id="lbExportRegionBtn" class="ai-btn" style="float:right;padding:3px 8px;font-size:9px;">↓ Excel</button>
+          </h2>
           <div class="table-scroll">
             <table id="lbRegionHeatmap" style="min-width:500px;">
               <thead id="lbRegionHeatmapHead"></thead>
@@ -565,16 +581,19 @@
       </div>
       <div class="ai-panel">
         <h2>Impact Split <span class="tag">stock, sales and follow-ups</span></h2>
-        <div style="position:relative;height:220px;">
-          <canvas id="aiImpactSplitChart"></canvas>
+        <div style="display:flex;gap:16px;align-items:center;flex:1;">
+          <div style="position:relative;height:140px;width:140px;flex-shrink:0;">
+            <canvas id="aiImpactSplitChart"></canvas>
+          </div>
+          <div id="aiImpactMagnitude" style="flex:1;display:flex;flex-direction:column;gap:10px;justify-content:center;"></div>
         </div>
       </div>
     </div>
 
     <div class="ai-grid-2">
       <div class="ai-panel">
-        <h2>Stock Position Improved <span class="tag">SOH moved in the right direction</span></h2>
-        <div class="ai-table-scroll">
+        <h2>Stock Position Improved <span class="tag">SOH moved in the right direction \u00b7 top 25</span></h2>
+        <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
             <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>SOH 4W Ago</th><th>SOH Impact</th><th>SOH Now</th><th>Status Now</th></tr></thead>
             <tbody id="aiStockTableBody"></tbody>
@@ -582,8 +601,8 @@
         </div>
       </div>
       <div class="ai-panel">
-        <h2>Sales Improved <span class="tag">P4W sales increased</span></h2>
-        <div class="ai-table-scroll">
+        <h2>Sales Improved <span class="tag">P4W sales increased \u00b7 top 25</span></h2>
+        <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
             <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>P4W 4W Ago</th><th>P4W Impact</th><th>P4W Now</th><th>Status Now</th></tr></thead>
             <tbody id="aiSalesTableBody"></tbody>
@@ -606,9 +625,14 @@
       <div class="sc-toolbar">
         <div>
           <h2 style="border:none;padding:0;margin:0;">Supply Chain Signals <span class="tag">SKUs flagged across many stores — escalate beyond field execution</span></h2>
-          <div class="ai-sub" style="margin-top:4px;">Same SKU + same task appearing in multiple stores points to a DC, ranging or planogram issue, not a rep problem. Click a row to see affected stores.</div>
+          <div class="ai-sub" style="margin-top:4px;">Same SKU + same task appearing in multiple stores points to a DC, ranging or planogram issue. Click a row to see affected stores.</div>
         </div>
         <div class="sc-threshold">
+          <div class="sc-status-toggle" id="scStatusToggle">
+            <button type="button" data-status="all" class="active">All</button>
+            <button type="button" data-status="pending">Pending</button>
+            <button type="button" data-status="actioned">Actioned</button>
+          </div>
           <label for="scThreshold">Flag at</label>
           <select id="scThreshold">
             <option value="3">3+ stores</option>
@@ -808,90 +832,19 @@ async function fetchJsonFile(token, relativePath) {
 }
 
 // =========================================================================
-// Decompress worker — inflating + JSON-parsing a full week (often 100k+ lines)
-// on the main thread freezes the page for the duration: no chart paints, no
-// button clicks register, nothing. Doing it in a Web Worker keeps the UI
-// responsive (spinners animate, tab switches work) while the heavy lifting
-// happens off-thread. Built inline via Blob so this stays a single file.
+// Decompress + parse a week's data. This blocks the main thread while it
+// runs (a real cost on a 100k+ line week) — a Web Worker version of this was
+// tried, but it was unreliable in this environment (likely a proxy/CSP
+// blocking importScripts from a blob-created worker), and a broken worker is
+// worse than no worker: it either hangs indefinitely or, with a timeout
+// safety net, adds a flat multi-second tax before falling back anyway.
+// Plain and synchronous is the version that has actually worked reliably.
 // =========================================================================
-let jsonlWorker = null;
-let jsonlWorkerReqId = 0;
-const jsonlWorkerPending = new Map();
-
-function getJsonlWorker() {
-  if (jsonlWorker) return jsonlWorker;
-  const workerSrc = `
-    importScripts('https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js');
-    onmessage = function(e) {
-      const { id, buf } = e.data;
-      try {
-        const text = pako.inflate(new Uint8Array(buf), { to: 'string' });
-        const rows = text.split('\\n').filter(Boolean).map(function(line) { return JSON.parse(line); });
-        postMessage({ id, rows });
-      } catch (err) {
-        postMessage({ id, error: (err && err.message) || String(err) });
-      }
-    };
-  `;
-  const blob = new Blob([workerSrc], { type: 'application/javascript' });
-  jsonlWorker = new Worker(URL.createObjectURL(blob));
-  jsonlWorker.onmessage = (e) => {
-    const { id, rows, error } = e.data;
-    const pending = jsonlWorkerPending.get(id);
-    if (!pending) return;
-    jsonlWorkerPending.delete(id);
-    if (error) pending.reject(new Error(error)); else pending.resolve(rows);
-  };
-  jsonlWorker.onerror = (e) => {
-    // Worker itself failed to start/run (e.g. importScripts blocked) — reject
-    // every in-flight request so callers can fall back rather than hang.
-    jsonlWorkerPending.forEach(p => p.reject(new Error('jsonl worker error: ' + e.message)));
-    jsonlWorkerPending.clear();
-    jsonlWorker = null;
-  };
-  return jsonlWorker;
-}
-
-function inflateAndParseOffThread(buf) {
-  const workerPromise = new Promise((resolve, reject) => {
-    try {
-      const worker = getJsonlWorker();
-      const id = ++jsonlWorkerReqId;
-      jsonlWorkerPending.set(id, { resolve, reject });
-      // Deliberately NOT using a transferable here (no [buf] transfer list):
-      // transferring would detach `buf` on the main thread, so if the worker
-      // errors mid-parse the fallback below would have no data left to retry
-      // with. The structured-clone copy costs a little more but keeps the
-      // fallback path correct.
-      worker.postMessage({ id, buf });
-    } catch (e) {
-      reject(e);
-    }
-  });
-  // Hard ceiling: if the worker never responds at all — blocked by a proxy,
-  // importScripts hanging rather than erroring, whatever the cause — this
-  // must not leave the caller waiting forever. 8s is generous for even a
-  // very large week; a real success responds in a fraction of that.
-  const timeout = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('jsonl worker timed out')), 8000);
-  });
-  return Promise.race([workerPromise, timeout]);
-}
-
 async function fetchGzJsonlFile(token, relativePath) {
   const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
   const buf = await graphFetch(url, token, true);
-  try {
-    return await inflateAndParseOffThread(buf);
-  } catch (e) {
-    // Worker unavailable, timed out, or errored for any reason — fall back
-    // to doing it on the main thread so the dashboard still works, just
-    // without the responsiveness win. This must never leave the person
-    // staring at a permanent "Loading..." state.
-    console.warn('Off-thread parse failed or timed out, falling back to main thread:', e);
-    const text = pako.inflate(new Uint8Array(buf), { to: "string" });
-    return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
-  }
+  const text = pako.inflate(new Uint8Array(buf), { to: "string" });
+  return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
 }
 
 // =========================================================================
@@ -1253,18 +1206,18 @@ function renderIconKpiRow(){
     box:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
   };
   const cards = [
-    {icon: SVG.list,  label:'Total Tasks',      value:total.toLocaleString(),    delta: dd(total, prev?.total, false, false)},
-    {icon: SVG.check, label:'Completed',         value:actioned.toLocaleString(), delta: dd(actioned, prev?.actioned, true, false)},
-    {icon: SVG.clock, label:'Pending',           value:pending.toLocaleString(),  delta: dd(pending, prev?.pending, false, false)},
-    {icon: SVG.pct,   label:'Completion Rate',   value:completionRate+'%',        delta: dd(completionRate, prev?.rate, true, true)},
-    {icon: SVG.store, label:'Stores Impacted',   value:stores.toLocaleString(),   delta: dd(stores, prev?.stores, false, false)},
-    {icon: SVG.box,   label:'SKUs Impacted',     value:skus.toLocaleString(),     delta: dd(skus, prev?.skus, false, false)},
+    {icon: SVG.list,  label:'Total Tasks',      value:total.toLocaleString(),    delta: dd(total, prev?.total, false, false), cls:''},
+    {icon: SVG.check, label:'Completed',         value:actioned.toLocaleString(), delta: dd(actioned, prev?.actioned, true, false), cls:'green'},
+    {icon: SVG.clock, label:'Pending',           value:pending.toLocaleString(),  delta: dd(pending, prev?.pending, false, false), cls:'orange'},
+    {icon: SVG.pct,   label:'Completion Rate',   value:completionRate+'%',        delta: dd(completionRate, prev?.rate, true, true), cls:'blue'},
+    {icon: SVG.store, label:'Stores Impacted',   value:stores.toLocaleString(),   delta: dd(stores, prev?.stores, false, false), cls:'purple'},
+    {icon: SVG.box,   label:'SKUs Impacted',     value:skus.toLocaleString(),     delta: dd(skus, prev?.skus, false, false), cls:'amber'},
   ];
 
   const el = document.getElementById('iconKpiRow');
   if (!el) return;
   el.innerHTML = cards.map(c => `
-    <div class="icon-kpi-card">
+    <div class="icon-kpi-card ${c.cls}">
       <div class="icon">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
@@ -1273,27 +1226,6 @@ function renderIconKpiRow(){
       </div>
     </div>
   `).join('');
-
-  // Impact banner
-  const bannerEl = document.getElementById('impactBanner');
-  if (bannerEl && total > 0) {
-    const rows2 = filteredRows();
-    const idle = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='No Sales (Idle Stock)').length;
-    const under = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Understock').length;
-    const over = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Overstock').length;
-    const oos = rows2.filter(r=>isActioned(r.actionStatus)&&r.classification==='Out of Stock').length;
-    bannerEl.innerHTML = `
-      <div>
-        <div class="impact-banner-eyebrow">Weekly impact report</div>
-        <div class="impact-banner-title">Completing ${actioned.toLocaleString()} tasks this week delivered measurable stock health improvements across ${stores.toLocaleString()} stores</div>
-        <div class="impact-banner-note">Focus area: no sales / idle stock remains the biggest opportunity.</div>
-      </div>
-      <div class="impact-metric"><div class="num">${idle.toLocaleString()}</div><div class="lbl">Idle stock cleared</div></div>
-      <div class="impact-metric"><div class="num">${under.toLocaleString()}</div><div class="lbl">Understocks resolved</div></div>
-      <div class="impact-metric"><div class="num">${over.toLocaleString()}</div><div class="lbl">Overstocks fixed</div></div>
-      <div class="impact-metric"><div class="num">${oos.toLocaleString()}</div><div class="lbl">OOS replenished</div></div>
-    `;
-  }
 
   // Focus bar
   const focusEl = document.getElementById('focusBar');
@@ -2041,8 +1973,8 @@ async function renderActionImpactTab(force){
 }
 function aiRender(result){
   const details = result.details || [];
-  const stockRows = details.filter(d => d.stockImproved).sort((a,b)=>b.stockImpact-a.stockImpact).slice(0,10);
-  const salesRows = details.filter(d => d.salesImproved).sort((a,b)=>b.salesImpact-a.salesImpact).slice(0,10);
+  const stockRows = details.filter(d => d.stockImproved).sort((a,b)=>b.stockImpact-a.stockImpact).slice(0,25);
+  const salesRows = details.filter(d => d.salesImproved).sort((a,b)=>b.salesImpact-a.salesImpact).slice(0,25);
   const followRows = details.filter(d => !d.recovered).slice(0,14);
   const stockImproved = details.filter(d=>d.stockImproved).length;
   const salesImproved = details.filter(d=>d.salesImproved).length;
@@ -2073,6 +2005,7 @@ function aiRender(result){
   const safeStep = (label, fn) => { try { fn(); } catch (e) { console.error(`Action Impact: ${label} failed`, e); } };
   safeStep('issue bars', () => aiRenderIssueBars(result.issueSummary || {}));
   safeStep('impact split chart', () => aiRenderImpactSplitChart({stockImproved, salesImproved, open}));
+  safeStep('impact magnitude', () => aiRenderImpactMagnitude(sohCorrected, salesUplift));
   safeStep('stock table', () => aiRenderRows('aiStockTableBody', stockRows, 'stock'));
   safeStep('sales table', () => aiRenderRows('aiSalesTableBody', salesRows, 'sales'));
   safeStep('followup table', () => aiRenderRows('aiFollowupTableBody', followRows, 'follow'));
@@ -2085,10 +2018,16 @@ function aiRenderIssueBars(summary){
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || b[1].total - a[1].total;
   }).filter(([,g])=>g.total>0);
   if (!entries.length) { el.innerHTML = '<div class="ai-empty">No feedback rows found for the selected 4-week comparison.</div>'; return; }
-  el.innerHTML = entries.map(([issue,g]) => {
+  const rowsHtml = entries.map(([issue,g]) => {
     const pct = g.total ? Math.round((g.recovered / g.total) * 100) : 0;
     return `<div class="ai-issue-row"><div class="ai-issue-label">${aiEsc(issue)}</div><div class="ai-issue-track"><div class="ai-issue-rec" style="width:${pct}%"></div><div class="ai-issue-open" style="width:${100-pct}%"></div></div><div class="ai-issue-num">${aiFmt(g.recovered)} / ${aiFmt(g.total)}</div></div>`;
-  }).join('') + '<div class="ai-mini-legend"><span><i class="ai-dot" style="background:var(--navy)"></i>Recovered</span><span><i class="ai-dot" style="background:#dce5ee"></i>Still open</span></div>';
+  }).join('');
+  // Rows sit in their own flex container that stretches to fill the panel
+  // (this panel sits next to the Impact Split chart in a grid, so it's
+  // always stretched to match that panel's height) and spaces the rows
+  // evenly instead of leaving a block of empty space below them. The legend
+  // stays outside that container so it isn't pulled into the distribution.
+  el.innerHTML = `<div class="ai-issue-rows">${rowsHtml}</div><div class="ai-mini-legend"><span><i class="ai-dot" style="background:var(--navy)"></i>Recovered</span><span><i class="ai-dot" style="background:#dce5ee"></i>Still open</span></div>`;
 }
 function aiRenderImpactSplitChart(vals){
   const ctx = document.getElementById('aiImpactSplitChart'); if (!ctx || typeof Chart === 'undefined') return;
@@ -2103,8 +2042,25 @@ function aiRenderImpactSplitChart(vals){
   aiChartInstance = new Chart(ctx, {
     type:'doughnut',
     data:{ labels:['Stock improved','Sales improved','Open follow-ups'], datasets:[{ data:[vals.stockImproved, vals.salesImproved, vals.open], backgroundColor:['#003B71','#2c8fae','#d9a72e'], borderWidth:0 }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'64%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10, family:'Montserrat' }, boxWidth:10 } } } }
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'64%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:9, family:'Montserrat' }, boxWidth:8, padding:8 } } } }
   });
+}
+function aiRenderImpactMagnitude(sohCorrected, salesUplift){
+  // Companion to the doughnut, which only shows *counts* of recovered lines.
+  // These two numbers were already being calculated but never shown anywhere
+  // — they answer "how much", not just "how many": total stock units pulled
+  // back into a healthy position, and total P4W sales units gained.
+  const el = document.getElementById('aiImpactMagnitude'); if (!el) return;
+  el.innerHTML = `
+    <div class="ai-magnitude-stat">
+      <div class="lbl">Total SOH corrected</div>
+      <div class="val">${aiFmt(Math.round(sohCorrected))}<span class="unit">units</span></div>
+    </div>
+    <div class="ai-magnitude-stat teal">
+      <div class="lbl">Total P4W sales uplift</div>
+      <div class="val">${aiFmt(Math.round(salesUplift))}<span class="unit">units</span></div>
+    </div>
+  `;
 }
 function aiRowTd(v, cls=''){ return `<td class="${cls}" title="${aiEsc(v)}">${aiEsc(v === undefined || v === null || v === '' ? '—' : v)}</td>`; }
 function aiRenderRows(id, rows, type){
@@ -2169,6 +2125,7 @@ function aiExportXlsx(){
 // =========================================================================
 let scInitialised = false;
 let scThreshold = 5;
+let scStatusFilter = 'all'; // 'all' | 'pending' | 'actioned' — which rows count toward a flagged group
 let scGroups = [];
 let scActiveGroup = null;
 
@@ -2189,8 +2146,14 @@ function scBuildData(threshold){
   if (!aiCache) return [];
   const impactWeek = aiCache.impactWeek;
   const baselineWeek = aiCache.baselineWeek;
-  const impactRows = (weekRowCache[impactWeek] || []).filter(aiPassGlobalFilters);
+  let impactRows = (weekRowCache[impactWeek] || []).filter(aiPassGlobalFilters);
   const baselineRows = (weekRowCache[baselineWeek] || []).filter(aiPassGlobalFilters);
+
+  // Local toggle (separate from the global Status filter bar) — lets you see
+  // which flagged SKUs still have a lot of pending stores vs which have
+  // already been worked, without changing the rest of the dashboard's filter.
+  if (scStatusFilter === 'pending') impactRows = impactRows.filter(r => isPending(r.actionStatus));
+  else if (scStatusFilter === 'actioned') impactRows = impactRows.filter(r => isActioned(r.actionStatus));
 
   const impactGroups = scGroupRows(impactRows);
   const baselineGroups = scGroupRows(baselineRows);
@@ -2234,13 +2197,14 @@ function scRender(){
   if (!body) return;
   scGroups = scBuildData(scThreshold);
   if (!scGroups.length) {
-    body.innerHTML = `<tr><td colspan="8" class="ai-empty">No SKUs currently flagged at ${scThreshold}+ stores for this comparison.</td></tr>`;
+    const filterNote = scStatusFilter === 'all' ? '' : ` (filtered to ${scStatusFilter})`;
+    body.innerHTML = `<tr><td colspan="8" class="ai-empty">No SKUs currently flagged at ${scThreshold}+ stores for this comparison${filterNote}.</td></tr>`;
     return;
   }
   body.innerHTML = scGroups.map((g, idx) => {
     const badgeCls = g.storesAffected >= (scThreshold * 2) ? 'high' : '';
     return `<tr data-sc-idx="${idx}">
-      ${aiRowTd(g.barcode)}
+      <td class="sc-sku-link" title="${aiEsc(g.barcode)}">${aiEsc(g.barcode)}</td>
       ${aiRowTd(g.article)}
       ${aiRowTd(g.action)}
       ${aiRowTd(g.classification)}
@@ -2314,6 +2278,16 @@ function scInitControls(){
   scInitialised = true;
   const sel = document.getElementById('scThreshold');
   if (sel) sel.addEventListener('change', () => { scThreshold = Number(sel.value) || 5; scRender(); });
+  const toggle = document.getElementById('scStatusToggle');
+  if (toggle) {
+    toggle.querySelectorAll('button[data-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        scStatusFilter = btn.getAttribute('data-status');
+        toggle.querySelectorAll('button[data-status]').forEach(b => b.classList.toggle('active', b === btn));
+        scRender();
+      });
+    });
+  }
   const closeBtn = document.getElementById('scModalCloseBtn');
   if (closeBtn) closeBtn.addEventListener('click', scCloseModal);
   const overlay = document.getElementById('scModalOverlay');
@@ -2329,6 +2303,30 @@ function scInitControls(){
 
 let lbState = { region: '__all__', manager: '__all__', repSearch: '' };
 let lbInitialised = false;
+// Populated fresh on every renderLeaderboardTab() call so the export buttons
+// (attached once, in the init block) always write out whatever is currently
+// on screen, without needing to know about calcMetrics/weekCols directly.
+let lbHeatmapExportCache = { manager: null, rep: null, region: null };
+
+function lbExportHeatmapToExcel(kind, label){
+  const cache = lbHeatmapExportCache[kind];
+  if (!cache || !cache.rows.length) { alert('No heatmap data to export yet.'); return; }
+  const rows = cache.rows.map(r => {
+    const out = {};
+    cache.extraCols.forEach(c => { out[c] = r.extra[c] ?? ''; });
+    cache.weekCols.forEach((w, i) => {
+      out[`${w.label} - % Stores`] = r.weekMetrics[i].pctStores;
+      out[`${w.label} - % Articles`] = r.weekMetrics[i].pctArticles;
+    });
+    return out;
+  });
+  if (typeof XLSX === 'undefined') { alert('Excel export is unavailable right now — please try again in a moment.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, label);
+  const weekTag = (cache.weekCols[cache.weekCols.length-1] || {}).week || '';
+  XLSX.writeFile(wb, `stockfix_${kind}_heatmap_${weekTag}.xlsx`);
+}
 
 async function renderLeaderboardTab() {
   // --- Initialise filters once ---
@@ -2356,6 +2354,12 @@ async function renderLeaderboardTab() {
       document.getElementById('lbManagerFilter').value = '__all__';
       renderLeaderboardTab();
     });
+    const exportManagerBtn = document.getElementById('lbExportManagerBtn');
+    if (exportManagerBtn) exportManagerBtn.addEventListener('click', () => lbExportHeatmapToExcel('manager', 'Manager Heatmap'));
+    const exportRepBtn = document.getElementById('lbExportRepBtn');
+    if (exportRepBtn) exportRepBtn.addEventListener('click', () => lbExportHeatmapToExcel('rep', 'Rep Heatmap'));
+    const exportRegionBtn = document.getElementById('lbExportRegionBtn');
+    if (exportRegionBtn) exportRegionBtn.addEventListener('click', () => lbExportHeatmapToExcel('region', 'Region Heatmap'));
   }
 
   // --- Determine which 4 weeks to show ---
@@ -2447,18 +2451,18 @@ async function renderLeaderboardTab() {
   const SVG_STAR    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   const kpiCards = [
-    { icon: SVG_USERS,  label: 'Total Reps',               value: allReps.length.toString(),          sub: 'Active this week' },
-    { icon: SVG_USER,   label: 'Total Managers',            value: allManagers.length.toString(),      sub: 'Across all regions' },
-    { icon: SVG_STORE,  label: 'Avg % Stores Actioned',    value: latestM.pctStores + '%',             sub: 'This week average' },
-    { icon: SVG_PCT,    label: 'Avg % Articles Actioned',  value: latestM.pctArticles + '%',           sub: 'This week average' },
-    { icon: SVG_TROPHY, label: 'Top Region',               value: topRegionEntry ? topRegionEntry.reg : '—',  sub: topRegionEntry ? `${topRegionEntry.pctStores}% Stores | ${topRegionEntry.pctArticles}% Articles` : '', orange: true },
-    { icon: SVG_STAR,   label: 'Best Manager',             value: topMgEntry ? topMgEntry.m : '—',    sub: topMgEntry ? `${topMgEntry.pctStores}% Stores | ${topMgEntry.pctArticles}% Articles` : '', orange: true },
+    { icon: SVG_USERS,  label: 'Total Reps',               value: allReps.length.toString(),          sub: 'Active this week', cls: '' },
+    { icon: SVG_USER,   label: 'Total Managers',            value: allManagers.length.toString(),      sub: 'Across all regions', cls: 'purple' },
+    { icon: SVG_STORE,  label: 'Avg % Stores Actioned',    value: latestM.pctStores + '%',             sub: 'This week average', cls: 'blue' },
+    { icon: SVG_PCT,    label: 'Avg % Articles Actioned',  value: latestM.pctArticles + '%',           sub: 'This week average', cls: 'green' },
+    { icon: SVG_TROPHY, label: 'Top Region',               value: topRegionEntry ? topRegionEntry.reg : '—',  sub: topRegionEntry ? `${topRegionEntry.pctStores}% Stores | ${topRegionEntry.pctArticles}% Articles` : '', cls: 'orange' },
+    { icon: SVG_STAR,   label: 'Best Manager',             value: topMgEntry ? topMgEntry.m : '—',    sub: topMgEntry ? `${topMgEntry.pctStores}% Stores | ${topMgEntry.pctArticles}% Articles` : '', cls: 'amber' },
   ];
 
   const kpiEl = document.getElementById('lbKpiRow');
   if (kpiEl) kpiEl.innerHTML = kpiCards.map(c => `
-    <div class="icon-kpi-card">
-      <div class="icon" style="background:${c.orange ? '#FF6C0E' : '#003B71'};">${c.icon}</div>
+    <div class="icon-kpi-card ${c.cls}">
+      <div class="icon" style="background:${(c.cls === 'orange' || c.cls === 'amber') ? '#FF6C0E' : '#003B71'};">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
         <div class="kpi-value" style="${kpiValueStyle(c.value)}">${c.value}</div>
@@ -2494,19 +2498,22 @@ async function renderLeaderboardTab() {
   const mgHeadEl = document.getElementById('lbManagerHeatmapHead');
   const mgBodyEl = document.getElementById('lbManagerHeatmapBody');
   if (mgHeadEl) mgHeadEl.innerHTML = buildHeatmapHead(['Manager', 'Region']);
+  const mgExportRows = [];
   if (mgBodyEl) mgBodyEl.innerHTML = allMgrs.map(mgr => {
     const region = (weekRowCache[LATEST_WEEK]||[]).find(r => r.manager === mgr)?.region || '';
-    const cells = weekCols.map(w => {
+    const weekMetrics = weekCols.map(w => {
       const wr = (weekRowCache[w.week]||[]).filter(r => r.manager === mgr);
-      const m = calcMetrics(wr);
-      return hmCell(m.pctStores) + hmCell(m.pctArticles);
-    }).join('');
+      return calcMetrics(wr);
+    });
+    mgExportRows.push({ extra: { Manager: mgr, Region: region }, weekMetrics });
+    const cells = weekMetrics.map(m => hmCell(m.pctStores) + hmCell(m.pctArticles)).join('');
     return `<tr>
       <td style="font-size:10px;font-weight:800;padding:5px 8px;color:#22384b;white-space:nowrap;">${mgr}</td>
       <td style="font-size:9px;padding:5px 8px;color:#8a9aab;white-space:nowrap;">${region}</td>
       ${cells}
     </tr>`;
   }).join('') || `<tr><td colspan="${2+weekCols.length*2}" style="padding:12px;text-align:center;color:#8a9aab;font-size:10px;">No data</td></tr>`;
+  lbHeatmapExportCache.manager = { extraCols: ['Manager', 'Region'], weekCols, rows: mgExportRows };
 
   const lbTag = document.getElementById('lbManagerHeatmapTag');
   if (lbTag) lbTag.textContent = `${allMgrs.length} managers · last 4 weeks`;
@@ -2523,13 +2530,15 @@ async function renderLeaderboardTab() {
   const rpHeadEl = document.getElementById('lbRepHeatmapHead');
   const rpBodyEl = document.getElementById('lbRepHeatmapBody');
   if (rpHeadEl) rpHeadEl.innerHTML = buildHeatmapHead(['Rep Name', 'Line Manager', 'Region']);
+  const rpExportRows = [];
   if (rpBodyEl) rpBodyEl.innerHTML = allRepsFiltered.map(rep => {
     const sample = (weekRowCache[LATEST_WEEK]||[]).find(r => r.rep === rep) || {};
-    const cells = weekCols.map(w => {
+    const weekMetrics = weekCols.map(w => {
       const wr = (weekRowCache[w.week]||[]).filter(r => r.rep === rep);
-      const m = calcMetrics(wr);
-      return hmCell(m.pctStores) + hmCell(m.pctArticles);
-    }).join('');
+      return calcMetrics(wr);
+    });
+    rpExportRows.push({ extra: { 'Rep Name': rep, 'Line Manager': sample.manager || '', Region: sample.region || '' }, weekMetrics });
+    const cells = weekMetrics.map(m => hmCell(m.pctStores) + hmCell(m.pctArticles)).join('');
     return `<tr>
       <td style="font-size:10px;font-weight:800;padding:5px 8px;color:#22384b;white-space:nowrap;">${rep}</td>
       <td style="font-size:9px;padding:5px 8px;color:#8a9aab;white-space:nowrap;">${sample.manager||''}</td>
@@ -2537,6 +2546,7 @@ async function renderLeaderboardTab() {
       ${cells}
     </tr>`;
   }).join('') || `<tr><td colspan="${3+weekCols.length*2}" style="padding:12px;text-align:center;color:#8a9aab;font-size:10px;">No data</td></tr>`;
+  lbHeatmapExportCache.rep = { extraCols: ['Rep Name', 'Line Manager', 'Region'], weekCols, rows: rpExportRows };
 
   const rpTag = document.getElementById('lbRepHeatmapTag');
   if (rpTag) rpTag.textContent = `${allRepsFiltered.length} reps · last 4 weeks`;
@@ -2612,17 +2622,20 @@ async function renderLeaderboardTab() {
   const regHeadEl = document.getElementById('lbRegionHeatmapHead');
   const regBodyEl = document.getElementById('lbRegionHeatmapBody');
   if (regHeadEl) regHeadEl.innerHTML = buildHeatmapHead(['Region']);
+  const regExportRows = [];
   if (regBodyEl) regBodyEl.innerHTML = allRegions.map(reg => {
-    const cells = weekCols.map(w => {
+    const weekMetrics = weekCols.map(w => {
       const wr = (weekRowCache[w.week]||[]).filter(r => r.region === reg);
-      const m = calcMetrics(wr);
-      return hmCell(m.pctStores) + hmCell(m.pctArticles);
-    }).join('');
+      return calcMetrics(wr);
+    });
+    regExportRows.push({ extra: { Region: reg }, weekMetrics });
+    const cells = weekMetrics.map(m => hmCell(m.pctStores) + hmCell(m.pctArticles)).join('');
     return `<tr>
       <td style="font-size:10px;font-weight:800;padding:5px 8px;color:#22384b;white-space:nowrap;">${reg}</td>
       ${cells}
     </tr>`;
   }).join('');
+  lbHeatmapExportCache.region = { extraCols: ['Region'], weekCols, rows: regExportRows };
 
   // ---- Top 5 Managers bars ----
   const top5MgrData = Object.entries(mgMap)
