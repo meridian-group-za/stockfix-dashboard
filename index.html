@@ -355,7 +355,6 @@
         <table style="display:none;"><tbody id="actionTakenTableBody"></tbody></table>
         <div id="donutRootCause"></div>
         <div id="top5SkuReason" style="margin-top:10px;padding-top:10px;border-top:1px solid #edf1f5;"></div>
-        <div id="top5SkuReason" style="margin-top:10px;padding-top:10px;border-top:1px solid #edf1f5;"></div>
 
       </div>
     </div>
@@ -566,7 +565,9 @@
       </div>
       <div class="ai-panel">
         <h2>Impact Split <span class="tag">stock, sales and follow-ups</span></h2>
-        <canvas id="aiImpactSplitChart" height="215"></canvas>
+        <div style="position:relative;height:220px;">
+          <canvas id="aiImpactSplitChart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -852,7 +853,7 @@ function getJsonlWorker() {
 }
 
 function inflateAndParseOffThread(buf) {
-  return new Promise((resolve, reject) => {
+  const workerPromise = new Promise((resolve, reject) => {
     try {
       const worker = getJsonlWorker();
       const id = ++jsonlWorkerReqId;
@@ -867,6 +868,14 @@ function inflateAndParseOffThread(buf) {
       reject(e);
     }
   });
+  // Hard ceiling: if the worker never responds at all — blocked by a proxy,
+  // importScripts hanging rather than erroring, whatever the cause — this
+  // must not leave the caller waiting forever. 8s is generous for even a
+  // very large week; a real success responds in a fraction of that.
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('jsonl worker timed out')), 8000);
+  });
+  return Promise.race([workerPromise, timeout]);
 }
 
 async function fetchGzJsonlFile(token, relativePath) {
@@ -875,10 +884,11 @@ async function fetchGzJsonlFile(token, relativePath) {
   try {
     return await inflateAndParseOffThread(buf);
   } catch (e) {
-    // Worker unavailable for some reason (locked-down browser policy, etc.) —
-    // fall back to doing it on the main thread so the dashboard still works,
-    // just without the responsiveness win.
-    console.warn('Off-thread parse failed, falling back to main thread:', e);
+    // Worker unavailable, timed out, or errored for any reason — fall back
+    // to doing it on the main thread so the dashboard still works, just
+    // without the responsiveness win. This must never leave the person
+    // staring at a permanent "Loading..." state.
+    console.warn('Off-thread parse failed or timed out, falling back to main thread:', e);
     const text = pako.inflate(new Uint8Array(buf), { to: "string" });
     return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
   }
@@ -1640,24 +1650,6 @@ function renderTaskBreakdown(){
   });
 }
 
-
-let statusChartInstance = null;
-function renderStatusChart(){
-  const weekRows = filteredRows();
-  const counts = {};
-  weekRows.forEach(r => { const s = r.actionStatus || 'Unknown'; counts[s] = (counts[s]||0) + 1; });
-  const labels = Object.keys(counts);
-  const data = labels.map(l => counts[l]);
-  const colors = labels.map(statusColor);
-  const ctx = document.getElementById('statusChart');
-  if (!ctx) return;
-  if (statusChartInstance) statusChartInstance.destroy();
-  statusChartInstance = new Chart(ctx, {
-    type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10.5 }, boxWidth: 10 } } }, cutout: '60%' },
-  });
-}
-
 function classBadge(cls){ return `<span class="badge" style="background:${CLASS_HEX[cls] || '#a8b3bf'}">${cls || 'Unclassified'}</span>`; }
 function statusBadge(s){ return `<span class="badge" style="background:${statusColor(s||'Unknown')}">${s || 'Unknown'}</span>`; }
 
@@ -1712,10 +1704,6 @@ function renderTable(){
 
 function renderWeekNotice(){ document.getElementById('weekNotice').innerHTML = ''; }
 
-// ---------- Banner / Region analytics ----------
-let bannerChartInstance = null;
-let regionChartInstance = null;
-
 function rowsIgnoring(filterKey){
   // Same as filteredRows() but skip one specific filter dimension, so the
   // "by banner" chart isn't collapsed to a single bar when a banner is selected.
@@ -1727,75 +1715,6 @@ function rowsIgnoring(filterKey){
     if (filterKey !== 'status' && state.status !== '__all__' && r.actionStatus !== state.status) return false;
     return true;
   });
-}
-
-function groupCount(rows, keyFn){
-  const counts = {};
-  rows.forEach(r => { const k = keyFn(r) || 'Unknown'; counts[k] = (counts[k]||0) + 1; });
-  return counts;
-}
-
-function renderBannerRegionAnalytics(){
-  const bannerRows = rowsIgnoring('banner');
-  const regionRows = rowsIgnoring('region');
-
-  const bannerCounts = groupCount(bannerRows, r => r.banner);
-  const bannerLabels = Object.keys(bannerCounts).sort((a,b) => bannerCounts[b]-bannerCounts[a]).slice(0, 15);
-  const ctxB = document.getElementById('bannerChart');
-  if (ctxB) {
-    if (bannerChartInstance) bannerChartInstance.destroy();
-    bannerChartInstance = new Chart(ctxB, {
-      type: 'bar',
-      data: { labels: bannerLabels, datasets: [{ data: bannerLabels.map(l => bannerCounts[l]), backgroundColor: '#FF6C0E' }] },
-      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
-        scales: { x: { ticks: { font: { size: 10.5 } } }, y: { ticks: { font: { size: 10.5 } } } } },
-    });
-  }
-  const bannerTag = document.getElementById('bannerAnalyticsTag');
-  if (bannerTag) bannerTag.textContent = `top ${bannerLabels.length} \u00b7 week ${state.week}`;
-
-  const regionCounts = groupCount(regionRows, r => r.region);
-  const regionLabels = Object.keys(regionCounts).sort((a,b) => regionCounts[b]-regionCounts[a]);
-  const ctxR = document.getElementById('regionChart');
-  if (ctxR) {
-    if (regionChartInstance) regionChartInstance.destroy();
-    regionChartInstance = new Chart(ctxR, {
-      type: 'bar',
-      data: { labels: regionLabels, datasets: [{ data: regionLabels.map(l => regionCounts[l]), backgroundColor: '#123a63' }] },
-      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
-        scales: { x: { ticks: { font: { size: 10.5 } } }, y: { ticks: { font: { size: 10.5 } } } } },
-    });
-  }
-  const regionTag = document.getElementById('regionAnalyticsTag');
-  if (regionTag) regionTag.textContent = `week ${state.week}`;
-
-  // Banner x Region breakdown table (optional - only rendered if the element exists)
-  const tbody = document.getElementById('bannerRegionTableBody');
-  if (!tbody) return;
-  const rows = filteredRows();
-  const grid = {};
-  rows.forEach(r => {
-    const key = `${r.banner||'Unknown'}\u0001${r.region||'Unknown'}`;
-    grid[key] = grid[key] || { total: 0, oos: 0, over: 0, under: 0, noSales: 0, optimal: 0 };
-    const g = grid[key];
-    g.total++;
-    if (r.classification === 'Out of Stock') g.oos++;
-    else if (r.classification === 'Overstock') g.over++;
-    else if (r.classification === 'Understock') g.under++;
-    else if (r.classification === 'No Sales (Idle Stock)' || r.classification === 'No Sales (Dead Stock)') g.noSales++;
-    else if (r.classification === 'Optimal') g.optimal++;
-  });
-  const entries = Object.entries(grid).sort((a,b) => b[1].total - a[1].total).slice(0, 100);
-  if (entries.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="muted" style="padding:20px;text-align:center;">No rows match these filters.</td></tr>`;
-  } else {
-    tbody.innerHTML = entries.map(([key, g]) => {
-      const [banner, region] = key.split('\u0001');
-      return `<tr><td>${banner}</td><td>${region}</td><td>${g.total.toLocaleString()}</td>
-        <td>${g.oos.toLocaleString()}</td><td>${g.over.toLocaleString()}</td><td>${g.under.toLocaleString()}</td>
-        <td>${g.noSales.toLocaleString()}</td><td>${g.optimal.toLocaleString()}</td></tr>`;
-    }).join('');
-  }
 }
 
 function renderTop10Actioned(){
@@ -1905,64 +1824,6 @@ function isActioned(status){
 function isPending(status){ return (status||'').includes('Pending'); }
 function isEscalated(status){ return (status||'').includes('Escalated'); }
 
-// ---------- Store Deep Dive ----------
-let storeSelectorPopulated = false;
-
-function populateStoreSelector(){
-  const sel = document.getElementById('storeSelector');
-  const rows = filteredRows();
-  const stores = [...new Set(rows.map(r => r.store))].filter(Boolean).sort();
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Select a store...</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
-  if (stores.includes(current)) sel.value = current;
-}
-
-function renderStoreDeepDive(){
-  populateStoreSelector();
-  const sel = document.getElementById('storeSelector');
-  const storeName = sel.value;
-  const content = document.getElementById('storeDeepDiveContent');
-  if (!storeName) {
-    content.innerHTML = `<div class="panel muted" style="text-align:center;padding:30px;">Select a store above to see its task list and images.</div>`;
-    return;
-  }
-  const rows = filteredRows().filter(r => r.store === storeName);
-  const images = [];
-  rows.forEach(r => {
-    [['image', r.image], ['image2', r.image2]].forEach(([label, url]) => {
-      if (url) images.push({ url, label, article: r.article });
-    });
-  });
-
-  content.innerHTML = `
-    <div class="panel">
-      <h2>${storeName} \u2014 task list <span class="tag">${rows.length.toLocaleString()} lines \u00b7 week ${state.week}</span></h2>
-      <div class="table-scroll" style="max-height:420px;">
-        <table>
-          <thead><tr><th>Article</th><th>DC SOH</th><th>Store SOH</th><th>Classification</th><th>Action</th><th>Status</th><th>Rep</th></tr></thead>
-          <tbody>
-            ${rows.length === 0 ? `<tr><td colspan="7" class="muted" style="padding:20px;text-align:center;">No rows for this store under current filters.</td></tr>` :
-              rows.map(r => `<tr><td>${r.article||''}</td><td>${r.dcSoh??''}</td><td>${r.storeSoh??''}</td>
-                <td>${classBadge(r.classification)}</td><td>${r.action||''}</td><td>${statusBadge(r.actionStatus)}</td><td>${r.rep||''}</td></tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Image gallery <span class="tag">${images.length} image${images.length===1?'':'s'}</span></h2>
-      ${images.length === 0 ? `<div class="muted" style="padding:20px;text-align:center;">No images attached for this store.</div>` :
-        `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
-          ${images.map(img => `
-            <a href="${img.url}" target="_blank" style="display:block;border:1px solid var(--border);border-radius:8px;padding:8px;text-decoration:none;color:var(--text-900);font-size:11px;">
-              <div style="background:var(--bg);border-radius:6px;height:90px;display:flex;align-items:center;justify-content:center;color:var(--text-400);font-size:10px;margin-bottom:6px;">${img.label}</div>
-              <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${img.article||''}</div>
-            </a>
-          `).join('')}
-        </div>`}
-    </div>
-  `;
-}
-
 // ---------- CSV export ----------
 function exportCsv(){
   const rows = filteredRows();
@@ -2010,7 +1871,6 @@ function rerenderAll(){
   safeRender('taskBreakdown', renderTaskBreakdown);
   safeRender('weekNotice', renderWeekNotice);
   safeRender('table', renderTable);
-  safeRender('bannerRegionAnalytics', renderBannerRegionAnalytics);
   // renderRepManagerPerformance is superseded by renderLeaderboardTab — stub to prevent ReferenceError
   safeRender('repManagerPerformance', function renderRepManagerPerformance(){});
   safeRender('actionedPendingBars', renderActionedPendingBars);
