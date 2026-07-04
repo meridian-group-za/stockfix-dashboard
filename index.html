@@ -67,6 +67,12 @@
   .icon-kpi-card.blue{border-left-color:var(--c-understock);}
   .icon-kpi-card.purple{border-left-color:var(--c-negative);}
   .icon-kpi-card.red{border-left-color:var(--c-oos);}
+  .icon-kpi-card.orange .icon{background:var(--orange);}
+  .icon-kpi-card.green .icon{background:var(--c-optimal);}
+  .icon-kpi-card.amber .icon{background:var(--c-overstock);}
+  .icon-kpi-card.blue .icon{background:var(--c-understock);}
+  .icon-kpi-card.purple .icon{background:var(--c-negative);}
+  .icon-kpi-card.red .icon{background:var(--c-oos);}
   .icon-kpi-card .icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#003B71;flex-shrink:0;color:#fff;}
   .icon-kpi-card .icon svg{width:17px;height:17px;stroke:#fff;}
   .icon-kpi-card .kpi-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;}
@@ -208,12 +214,19 @@
 .ai-chip{background:#eef4fa;border:1px solid #d7e4ef;color:#24435e;border-radius:999px;padding:5px 9px;font-size:9px;font-weight:800;}
 .ai-chip.orange{background:#fff4ec;border-color:#ffd8bd;color:#b64d00;}
 .ai-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
-.ai-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-left:4px solid var(--navy);box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;}
+.ai-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;border-left:4px solid var(--navy);box-shadow:0 3px 12px rgba(10,39,71,.06);min-height:76px;display:flex;align-items:center;gap:10px;}
 .ai-kpi.orange{border-left-color:var(--orange);}
 .ai-kpi.green{border-left-color:var(--c-optimal);}
 .ai-kpi.amber{border-left-color:var(--c-overstock);}
 .ai-kpi.blue{border-left-color:var(--c-understock);}
 .ai-kpi.purple{border-left-color:var(--c-negative);}
+.ai-kpi .icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#003B71;flex-shrink:0;color:#fff;}
+.ai-kpi .icon svg{width:17px;height:17px;stroke:#fff;}
+.ai-kpi.orange .icon{background:var(--orange);}
+.ai-kpi.green .icon{background:var(--c-optimal);}
+.ai-kpi.amber .icon{background:var(--c-overstock);}
+.ai-kpi.blue .icon{background:var(--c-understock);}
+.ai-kpi.purple .icon{background:var(--c-negative);}
 .ai-kpi .lbl{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:800;}
 .ai-kpi .val{font-size:20px;font-weight:900;color:var(--navy);margin-top:3px;line-height:1.05;}
 .ai-kpi .note{font-size:8.7px;color:#8696a8;font-weight:700;margin-top:3px;line-height:1.25;}
@@ -242,7 +255,10 @@
 .ai-issue-num{font-size:9px;color:var(--muted);font-weight:800;text-align:right;}
 .ai-mini-legend{display:flex;gap:12px;margin-top:8px;font-size:9px;color:var(--muted);font-weight:800;}
 .ai-magnitude-stat{border-left:4px solid var(--navy);padding:2px 0 2px 12px;}
-.ai-magnitude-stat.teal{border-left-color:#2c8fae;}
+.ai-magnitude-stat.teal,.ai-magnitude-stat.blue{border-left-color:var(--c-understock);}
+.ai-magnitude-stat.green{border-left-color:var(--c-optimal);}
+.ai-magnitude-stat.amber{border-left-color:var(--c-overstock);}
+.ai-magnitude-stat.purple{border-left-color:var(--c-negative);}
 .ai-magnitude-stat .lbl{font-size:8.7px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:800;}
 .ai-magnitude-stat .val{font-size:21px;font-weight:900;color:var(--navy);margin-top:2px;line-height:1.05;}
 .ai-magnitude-stat .val .unit{font-size:11px;color:#8a9aab;font-weight:700;margin-left:3px;}
@@ -252,6 +268,45 @@
 .ai-actions{display:flex;gap:6px;align-items:center;}
 .ai-btn{background:#f0f3f6;border:1px solid #d4dde6;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;color:#003B71;}
 @media(max-width:1100px){.ai-kpi-row{grid-template-columns:repeat(3,1fr)}.ai-grid-2{grid-template-columns:1fr}.ai-toolbar{align-items:flex-start}.ai-issue-row{grid-template-columns:105px 1fr 48px}}
+
+
+/* ===== Action Impact Summary redesign (isolated) ===== */
+.ai-grid-impact{display:grid;grid-template-columns:1.55fr .85fr;gap:8px;margin-bottom:8px;align-items:stretch;}
+.ai-impact-redesign-panel{overflow:hidden;padding:0;}
+.ai-impact-redesign-panel h2{margin:0;padding:11px 12px 9px;border-bottom:1px solid #edf1f5;}
+.ai-impact-redesign{padding:10px 12px 12px;}
+.ai-impact-story-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:10px;margin-bottom:10px;}
+.ai-impact-hero-panel{border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#ffffff 0%,#f8fbfe 100%);padding:12px;min-height:142px;}
+.ai-impact-kicker{font-size:8.5px;color:#7e91a4;font-weight:900;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
+.ai-impact-hero-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ai-impact-hero-metric{border-left:4px solid var(--orange);padding:5px 8px 6px 10px;background:#fff;border-radius:0 9px 9px 0;box-shadow:0 1px 0 rgba(10,39,71,.04);}
+.ai-impact-hero-metric.green{border-left-color:var(--c-optimal);}
+.ai-impact-hero-label{font-size:9px;color:#50677e;font-weight:900;text-transform:uppercase;letter-spacing:.25px;line-height:1.15;min-height:22px;}
+.ai-impact-hero-value{font-size:25px;font-weight:900;color:var(--navy);line-height:1;margin-top:6px;letter-spacing:-.5px;}
+.ai-impact-hero-unit{font-size:9px;color:#7a8da0;font-weight:800;margin-top:3px;}
+.ai-impact-explain{margin-top:9px;border-top:1px solid #e7edf3;padding-top:8px;font-size:10px;line-height:1.45;color:#536a80;font-weight:700;}
+.ai-impact-explain b{color:var(--navy);font-weight:900;}
+.ai-impact-flow-panel{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px;min-height:142px;}
+.ai-impact-flow-title{font-size:8.5px;color:#7e91a4;font-weight:900;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+.ai-impact-flow-line{display:grid;grid-template-columns:76px 1fr 70px;gap:7px;align-items:center;margin:9px 0;}
+.ai-impact-flow-name{font-size:9.5px;font-weight:900;color:#25394d;text-align:right;line-height:1.1;}
+.ai-impact-track{height:16px;background:#e4ebf2;border-radius:999px;overflow:hidden;position:relative;}
+.ai-impact-fill{height:100%;border-radius:999px;background:var(--navy);}
+.ai-impact-fill.orange{background:var(--orange);}
+.ai-impact-fill.green{background:var(--c-optimal);}
+.ai-impact-flow-val{font-size:9px;font-weight:900;color:var(--navy);text-align:right;}
+.ai-impact-logic-strip{margin-top:10px;border:1px dashed #cdd9e4;background:#f8fbfe;border-radius:10px;padding:8px 10px;font-size:9.5px;color:#5a7187;font-weight:700;line-height:1.4;}
+.ai-impact-logic-strip b{color:var(--navy);font-weight:900;}
+.ai-impact-support-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.ai-impact-support-card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:11px 12px;min-height:84px;display:flex;flex-direction:column;justify-content:space-between;}
+.ai-impact-support-card.blue{border-left:4px solid var(--c-understock);}
+.ai-impact-support-card.purple{border-left:4px solid var(--c-negative);}
+.ai-impact-support-card.navy{border-left:4px solid var(--navy);}
+.ai-impact-support-label{font-size:9px;color:#50677e;font-weight:900;text-transform:uppercase;letter-spacing:.25px;line-height:1.15;}
+.ai-impact-support-value{font-size:22px;color:var(--navy);font-weight:900;line-height:1;margin-top:7px;letter-spacing:-.3px;}
+.ai-impact-support-note{font-size:8.6px;color:#8193a6;font-weight:800;margin-top:4px;line-height:1.25;}
+@media(max-width:1180px){.ai-grid-impact{grid-template-columns:1fr}.ai-impact-story-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.ai-impact-support-grid{grid-template-columns:1fr}.ai-impact-hero-row{grid-template-columns:1fr}.ai-impact-hero-label{min-height:0}.ai-impact-flow-line{grid-template-columns:70px 1fr 62px}}
 
 /* ===== Supply Chain Signals panel ===== */
 .sc-panel{margin-top:8px;}
@@ -281,7 +336,7 @@
 .sc-modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:#8193a6;padding:2px 6px;}
 .sc-modal-close:hover{color:#22384b;}
 .sc-modal-body{padding:14px 20px;overflow:auto;}
-#scModalTable th, #scModalTable td{white-space:normal;word-break:break-word;}
+#scModalTable th, #scModalTable td, #aiArticleModalTable th, #aiArticleModalTable td{white-space:normal;word-break:break-word;}
 .sc-modal-foot{padding:12px 20px;border-top:1px solid #edf1f5;display:flex;justify-content:flex-end;gap:8px;}
 @media(max-width:700px){.sc-modal{max-height:92vh;}}
 
@@ -573,19 +628,14 @@
     <div id="aiLoading" class="ai-loader" style="display:none;">Loading Action Impact data…</div>
     <div class="ai-kpi-row" id="aiKpiRow"></div>
 
-    <div class="ai-grid-2">
+    <div class="ai-grid-impact">
+      <div class="ai-panel ai-impact-redesign-panel">
+        <h2>Impact Summary <span class="tag">4-week comparison</span></h2>
+        <div id="aiImpactSummary" class="ai-impact-redesign"></div>
+      </div>
       <div class="ai-panel">
         <h2>Impact by Issue Type <span class="tag">Recovered vs still open</span></h2>
         <div id="aiIssueBars"></div>
-      </div>
-      <div class="ai-panel">
-        <h2>Impact Split <span class="tag">stock, sales and follow-ups</span></h2>
-        <div style="display:flex;gap:16px;align-items:center;flex:1;">
-          <div style="position:relative;height:140px;width:140px;flex-shrink:0;">
-            <canvas id="aiImpactSplitChart"></canvas>
-          </div>
-          <div id="aiImpactMagnitude" style="flex:1;display:flex;flex-direction:column;gap:10px;justify-content:center;"></div>
-        </div>
       </div>
     </div>
 
@@ -594,7 +644,7 @@
         <h2>Stock Position Improved <span class="tag">SOH moved in the right direction</span></h2>
         <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
-            <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>SOH 4W Ago</th><th>SOH Impact</th><th>SOH Now</th><th>Status Now</th></tr></thead>
+            <thead><tr><th>Article</th><th>Starting Issue</th><th>Stores Improved</th><th>Total SOH Impact</th></tr></thead>
             <tbody id="aiStockTableBody"></tbody>
           </table>
         </div>
@@ -603,7 +653,7 @@
         <h2>Sales Improved <span class="tag">P4W sales increased</span></h2>
         <div class="ai-table-scroll" style="max-height:420px;">
           <table class="ai-table">
-            <thead><tr><th>Store</th><th>Article</th><th>Starting Issue</th><th>P4W 4W Ago</th><th>P4W Impact</th><th>P4W Now</th><th>Status Now</th></tr></thead>
+            <thead><tr><th>Article</th><th>Starting Issue</th><th>Stores Improved</th><th>Total P4W Impact</th></tr></thead>
             <tbody id="aiSalesTableBody"></tbody>
           </table>
         </div>
@@ -672,6 +722,33 @@
     </div>
     <div class="sc-modal-foot">
       <button class="ai-btn" id="scModalExportBtn">↓ Export this SKU's stores (Excel)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Article store breakdown modal — shared entry point from both Stock Position
+     Improved and Sales Improved, since a store/article row carries both stock
+     and sales figures regardless of which table it was clicked from. Reuses
+     the same sc-modal-* styling as the Supply Chain Signals modal. -->
+<div class="sc-modal-overlay" id="aiArticleModalOverlay">
+  <div class="sc-modal">
+    <div class="sc-modal-head">
+      <div>
+        <h3 id="aiArticleModalTitle">Article detail</h3>
+        <div class="sc-modal-sub" id="aiArticleModalSub"></div>
+      </div>
+      <button class="sc-modal-close" id="aiArticleModalCloseBtn" aria-label="Close">&times;</button>
+    </div>
+    <div class="sc-modal-body">
+      <div class="ai-table-scroll">
+        <table class="ai-table" id="aiArticleModalTable">
+          <thead><tr><th>Store</th><th>Starting Issue</th><th>SOH 4W Ago</th><th>SOH Impact</th><th>SOH Now</th><th>P4W 4W Ago</th><th>P4W Impact</th><th>P4W Now</th><th>Status Now</th></tr></thead>
+          <tbody id="aiArticleModalTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sc-modal-foot">
+      <button class="ai-btn" id="aiArticleModalExportBtn">↓ Export this article's stores (Excel)</button>
     </div>
   </div>
 </div>
@@ -1823,7 +1900,6 @@ function rerenderAll(){
 let aiInitialised = false;
 let aiCacheKey = null;
 let aiCache = null;
-let aiChartInstance = null;
 let aiLoadingKey = null;
 
 function aiNum(v){
@@ -1914,6 +1990,13 @@ function aiInitControls(){
   }
   const xlsxBtn = document.getElementById('aiExportXlsxBtn');
   if (xlsxBtn) xlsxBtn.addEventListener('click', aiExportXlsx);
+  const articleCloseBtn = document.getElementById('aiArticleModalCloseBtn');
+  if (articleCloseBtn) articleCloseBtn.addEventListener('click', aiCloseArticleModal);
+  const articleOverlay = document.getElementById('aiArticleModalOverlay');
+  if (articleOverlay) articleOverlay.addEventListener('click', (e) => { if (e.target === articleOverlay) aiCloseArticleModal(); });
+  const articleExportBtn = document.getElementById('aiArticleModalExportBtn');
+  if (articleExportBtn) articleExportBtn.addEventListener('click', aiExportArticleModal);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') aiCloseArticleModal(); });
 }
 async function aiBuildData(impactWeek){
   const baselineWeek = aiBaselineFor(impactWeek);
@@ -1967,6 +2050,24 @@ async function aiBuildData(impactWeek){
   aiCacheKey = cacheKey;
   return aiCache;
 }
+function aiGroupByArticle(details, filterFn, impactField){
+  const groups = new Map();
+  details.filter(filterFn).forEach(d => {
+    const key = d.base.barcode || d.base.article;
+    if (!groups.has(key)) groups.set(key, { barcode: d.base.barcode, article: d.base.article, issueCounts: {}, totalImpact: 0, stores: new Set() });
+    const g = groups.get(key);
+    g.totalImpact += Math.max(0, d[impactField]);
+    g.stores.add(d.base.store);
+    g.issueCounts[d.issue] = (g.issueCounts[d.issue]||0) + 1;
+  });
+  return [...groups.values()].map(g => ({
+    barcode: g.barcode,
+    article: g.article,
+    storesImproved: g.stores.size,
+    totalImpact: g.totalImpact,
+    topIssue: Object.entries(g.issueCounts).sort((a,b)=>b[1]-a[1])[0][0],
+  })).sort((a,b) => b.totalImpact - a.totalImpact);
+}
 async function renderActionImpactTab(force){
   const tab = document.getElementById('tab-actionimpact');
   if (!tab) return;
@@ -1977,10 +2078,14 @@ async function renderActionImpactTab(force){
   try { aiRender(result); } catch (e) { console.error('Action Impact: aiRender failed', e); }
   try { scRender(); } catch (e) { console.error('Action Impact: Supply Chain Signals render failed', e); }
 }
+let aiStockArticleGroups = [];
+let aiSalesArticleGroups = [];
 function aiRender(result){
   const details = result.details || [];
-  const stockRows = details.filter(d => d.stockImproved).sort((a,b)=>b.stockImpact-a.stockImpact).slice(0,25);
-  const salesRows = details.filter(d => d.salesImproved).sort((a,b)=>b.salesImpact-a.salesImpact).slice(0,25);
+  const stockArticleGroups = aiGroupByArticle(details, d => d.stockImproved, 'stockImpact').slice(0,25);
+  const salesArticleGroups = aiGroupByArticle(details, d => d.salesImproved, 'salesImpact').slice(0,25);
+  aiStockArticleGroups = stockArticleGroups;
+  aiSalesArticleGroups = salesArticleGroups;
   const followRows = details.filter(d => !d.recovered).slice(0,14);
   const stockImproved = details.filter(d=>d.stockImproved).length;
   const salesImproved = details.filter(d=>d.salesImproved).length;
@@ -1988,21 +2093,31 @@ function aiRender(result){
   const noSalesReduced = details.filter(d=>aiIsNoSalesIssue(d.issue) && d.noSalesFlagReduced).length;
   const sohCorrected = details.filter(d=>d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
   const salesUplift = details.filter(d=>d.salesImproved).reduce((s,d)=>s+Math.max(0,d.salesImpact),0);
+  const overstockReducedUnits = details.filter(d=>d.issue==='Overstock' && d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
+  const impactedStores = new Set(details.filter(d=>d.stockImproved || d.salesImproved).map(d=>d.base.store)).size;
   const open = details.filter(d=>!d.recovered).length;
 
   const bChip = document.getElementById('aiBaselineChip'); if (bChip) bChip.textContent = `Baseline: ${result.baselineWeek || 'not available'} · feedback captured`;
   const iChip = document.getElementById('aiImpactChip'); if (iChip) iChip.textContent = `Impact: ${result.impactWeek || 'selected week'}`;
 
+  const AI_ICONS = {
+    box:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+    trendUp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+    bar:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>`,
+    trendDn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`,
+    bellOff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
+    clock:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  };
   const kpis = [
-    {lbl:'Feedbacked SKUs', val:aiFmt(details.length), note:'Feedback not blank 4 weeks ago', cls:''},
-    {lbl:'Stock Position Improved', val:aiFmt(stockImproved), note:'SOH moved in the right direction', cls:'green'},
-    {lbl:'Sales Improved', val:aiFmt(salesImproved), note:'P4W sales increased', cls:'blue'},
-    {lbl:'Overstock Reduced', val:aiFmt(overstockReduced), note:'SOH came down where stock was high', cls:'amber'},
-    {lbl:'No Sales Flags Reduced', val:aiFmt(noSalesReduced), note:'No Sales 30/60 no longer flagged or selling', cls:'purple'},
-    {lbl:'Open Follow-Ups', val:aiFmt(open), note:'Feedback captured, still open', cls:'orange'},
+    {lbl:'Feedbacked SKUs', val:aiFmt(details.length), note:'Feedback not blank 4 weeks ago', cls:'', icon:AI_ICONS.box},
+    {lbl:'Stock Position Improved', val:aiFmt(stockImproved), note:'SOH moved in the right direction', cls:'green', icon:AI_ICONS.trendUp},
+    {lbl:'Sales Improved', val:aiFmt(salesImproved), note:'P4W sales increased', cls:'blue', icon:AI_ICONS.bar},
+    {lbl:'Overstock Reduced', val:aiFmt(overstockReduced), note:'SOH came down where stock was high', cls:'amber', icon:AI_ICONS.trendDn},
+    {lbl:'No Sales Flags Reduced', val:aiFmt(noSalesReduced), note:'No Sales 30/60 no longer flagged or selling', cls:'purple', icon:AI_ICONS.bellOff},
+    {lbl:'Open Follow-Ups', val:aiFmt(open), note:'Feedback captured, still open', cls:'orange', icon:AI_ICONS.clock},
   ];
   const kpiEl = document.getElementById('aiKpiRow');
-  if (kpiEl) kpiEl.innerHTML = kpis.map(k => `<div class="ai-kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val" style="${kpiValueStyle(k.val)}">${k.val}</div><div class="note">${k.note}</div></div>`).join('');
+  if (kpiEl) kpiEl.innerHTML = kpis.map(k => `<div class="ai-kpi ${k.cls}"><div class="icon">${k.icon}</div><div><div class="lbl">${k.lbl}</div><div class="val" style="${kpiValueStyle(k.val)}">${k.val}</div><div class="note">${k.note}</div></div></div>`).join('');
 
   // Each panel below renders independently — if one throws (e.g. a Chart.js
   // "canvas already in use" error on fast re-render), it must not prevent the
@@ -2010,10 +2125,9 @@ function aiRender(result){
   // from rendering.
   const safeStep = (label, fn) => { try { fn(); } catch (e) { console.error(`Action Impact: ${label} failed`, e); } };
   safeStep('issue bars', () => aiRenderIssueBars(result.issueSummary || {}));
-  safeStep('impact split chart', () => aiRenderImpactSplitChart({stockImproved, salesImproved, open}));
-  safeStep('impact magnitude', () => aiRenderImpactMagnitude(sohCorrected, salesUplift));
-  safeStep('stock table', () => aiRenderRows('aiStockTableBody', stockRows, 'stock'));
-  safeStep('sales table', () => aiRenderRows('aiSalesTableBody', salesRows, 'sales'));
+  safeStep('impact summary', () => aiRenderImpactSummary({sohCorrected, overstockReducedUnits, salesUplift, noSalesReduced, impactedStores}));
+  safeStep('stock table', () => aiRenderArticleRows('aiStockTableBody', stockArticleGroups, 'stock'));
+  safeStep('sales table', () => aiRenderArticleRows('aiSalesTableBody', salesArticleGroups, 'sales'));
   safeStep('followup table', () => aiRenderRows('aiFollowupTableBody', followRows, 'follow'));
 }
 function aiRenderIssueBars(summary){
@@ -2035,36 +2149,82 @@ function aiRenderIssueBars(summary){
   // stays outside that container so it isn't pulled into the distribution.
   el.innerHTML = `<div class="ai-issue-rows">${rowsHtml}</div><div class="ai-mini-legend"><span><i class="ai-dot" style="background:var(--navy)"></i>Recovered</span><span><i class="ai-dot" style="background:#dce5ee"></i>Still open</span></div>`;
 }
-function aiRenderImpactSplitChart(vals){
-  const ctx = document.getElementById('aiImpactSplitChart'); if (!ctx || typeof Chart === 'undefined') return;
-  // Don't rely solely on the module-level aiChartInstance reference — if two
-  // renders overlap (e.g. impact week changed right after a filter change),
-  // that variable can go stale and Chart.js will throw "Canvas is already in
-  // use" when we try to create a second chart on the same <canvas>. Chart.js's
-  // own registry (Chart.getChart) is the source of truth for what's actually
-  // attached to this element, so check that too before creating a new one.
-  const existing = aiChartInstance || (typeof Chart.getChart === 'function' ? Chart.getChart(ctx) : null);
-  if (existing) { try { existing.destroy(); } catch (e) { /* already gone */ } }
-  aiChartInstance = new Chart(ctx, {
-    type:'doughnut',
-    data:{ labels:['Stock improved','Sales improved','Open follow-ups'], datasets:[{ data:[vals.stockImproved, vals.salesImproved, vals.open], backgroundColor:['#003B71','#2c8fae','#d9a72e'], borderWidth:0 }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'64%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:9, family:'Montserrat' }, boxWidth:8, padding:8 } } } }
-  });
-}
-function aiRenderImpactMagnitude(sohCorrected, salesUplift){
-  // Companion to the doughnut, which only shows *counts* of recovered lines.
-  // These two numbers were already being calculated but never shown anywhere
-  // — they answer "how much", not just "how many": total stock units pulled
-  // back into a healthy position, and total P4W sales units gained.
-  const el = document.getElementById('aiImpactMagnitude'); if (!el) return;
+function aiRenderImpactSummary(vals){
+  // Separates overstock reduction from availability restoration so opposite
+  // SOH movements are not combined into one confusing total.
+  const el = document.getElementById('aiImpactSummary'); if (!el) return;
+  const overstock = Math.max(0, Math.round(vals.overstockReducedUnits || 0));
+  const availability = Math.max(0, Math.round((vals.sohCorrected || 0) - (vals.overstockReducedUnits || 0)));
+  const sales = Math.max(0, Math.round(vals.salesUplift || 0));
+  const noSales = Math.max(0, vals.noSalesReduced || 0);
+  const stores = Math.max(0, vals.impactedStores || 0);
+  const maxVal = Math.max(overstock, availability, sales, 1);
+  const pct = v => Math.max(4, Math.round((v / maxVal) * 100));
+
   el.innerHTML = `
-    <div class="ai-magnitude-stat">
-      <div class="lbl">Total SOH corrected</div>
-      <div class="val">${aiFmt(Math.round(sohCorrected))}<span class="unit">units</span></div>
+    <div class="ai-impact-story-grid">
+      <div class="ai-impact-hero-panel">
+        <div class="ai-impact-kicker">Stock movement corrected</div>
+        <div class="ai-impact-hero-row">
+          <div class="ai-impact-hero-metric">
+            <div class="ai-impact-hero-label">Overstock Reduced</div>
+            <div class="ai-impact-hero-value">${aiFmt(overstock)}</div>
+            <div class="ai-impact-hero-unit">units reduced</div>
+          </div>
+          <div class="ai-impact-hero-metric green">
+            <div class="ai-impact-hero-label">Availability Restored</div>
+            <div class="ai-impact-hero-value">${aiFmt(availability)}</div>
+            <div class="ai-impact-hero-unit">units added back</div>
+          </div>
+        </div>
+        <div class="ai-impact-explain">
+          <b>One story, two directions:</b> stock came down where stores were overstocked, and stock went up where stores were understocked, OOS, or negative.
+        </div>
+      </div>
+      <div class="ai-impact-flow-panel">
+        <div class="ai-impact-flow-title">Impact split</div>
+        <div class="ai-impact-flow-line">
+          <div class="ai-impact-flow-name">Overstock</div>
+          <div class="ai-impact-track"><div class="ai-impact-fill orange" style="width:${pct(overstock)}%"></div></div>
+          <div class="ai-impact-flow-val">${aiFmt(overstock)}</div>
+        </div>
+        <div class="ai-impact-flow-line">
+          <div class="ai-impact-flow-name">Availability</div>
+          <div class="ai-impact-track"><div class="ai-impact-fill green" style="width:${pct(availability)}%"></div></div>
+          <div class="ai-impact-flow-val">${aiFmt(availability)}</div>
+        </div>
+        <div class="ai-impact-flow-line">
+          <div class="ai-impact-flow-name">Sales</div>
+          <div class="ai-impact-track"><div class="ai-impact-fill" style="width:${pct(sales)}%"></div></div>
+          <div class="ai-impact-flow-val">${aiFmt(sales)}</div>
+        </div>
+        <div class="ai-impact-logic-strip">
+          Based only on SKU-store lines where <b>feedback was captured 4 weeks ago</b> and matched again this week.
+        </div>
+      </div>
     </div>
-    <div class="ai-magnitude-stat teal">
-      <div class="lbl">Total P4W sales uplift</div>
-      <div class="val">${aiFmt(Math.round(salesUplift))}<span class="unit">units</span></div>
+    <div class="ai-impact-support-grid">
+      <div class="ai-impact-support-card blue">
+        <div>
+          <div class="ai-impact-support-label">Sales Improved</div>
+          <div class="ai-impact-support-value">${aiFmt(sales)}</div>
+        </div>
+        <div class="ai-impact-support-note">units P4W uplift</div>
+      </div>
+      <div class="ai-impact-support-card purple">
+        <div>
+          <div class="ai-impact-support-label">No Sales Flags Reduced</div>
+          <div class="ai-impact-support-value">${aiFmt(noSales)}</div>
+        </div>
+        <div class="ai-impact-support-note">SKUs no longer idle/dead</div>
+      </div>
+      <div class="ai-impact-support-card navy">
+        <div>
+          <div class="ai-impact-support-label">Impacted Stores</div>
+          <div class="ai-impact-support-value">${aiFmt(stores)}</div>
+        </div>
+        <div class="ai-impact-support-note">unique stores improved</div>
+      </div>
     </div>
   `;
 }
@@ -2072,13 +2232,89 @@ function aiRowTd(v, cls=''){ return `<td class="${cls}" title="${aiEsc(v)}">${ai
 function aiRenderRows(id, rows, type){
   const body = document.getElementById(id); if (!body) return;
   if (!rows.length) { body.innerHTML = `<tr><td colspan="8" class="ai-empty">No rows for this view.</td></tr>`; return; }
-  if (type === 'stock') {
-    body.innerHTML = rows.map(d => `<tr>${aiRowTd(d.base.store)}${aiRowTd(d.base.article)}${aiRowTd(d.issue)}${aiRowTd(aiFmt(d.baseSoh))}${aiRowTd('+'+aiFmt(d.stockImpact),'ai-pos')}${aiRowTd(aiFmt(d.latestSoh))}${aiRowTd(d.latest ? d.latest.classification : 'Not found')}</tr>`).join('');
-  } else if (type === 'sales') {
-    body.innerHTML = rows.map(d => `<tr>${aiRowTd(d.base.store)}${aiRowTd(d.base.article)}${aiRowTd(d.issue)}${aiRowTd(aiFmt(d.baseP4w))}${aiRowTd('+'+aiFmt(d.salesImpact),'ai-pos')}${aiRowTd(aiFmt(d.latestP4w))}${aiRowTd(d.latest ? d.latest.classification : 'Not found')}</tr>`).join('');
-  } else {
-    body.innerHTML = rows.map(d => `<tr>${aiRowTd(d.base.store)}${aiRowTd(d.base.article)}${aiRowTd(d.issue)}${aiRowTd(aiFmt(d.baseSoh))}${aiRowTd(d.latest ? aiFmt(d.latestSoh) : 'Not found')}${aiRowTd(aiFmt(d.baseP4w))}${aiRowTd(d.latest ? aiFmt(d.latestP4w) : 'Not found')}${aiRowTd(d.followupArea)}</tr>`).join('');
+  body.innerHTML = rows.map(d => `<tr>${aiRowTd(d.base.store)}${aiRowTd(d.base.article)}${aiRowTd(d.issue)}${aiRowTd(aiFmt(d.baseSoh))}${aiRowTd(d.latest ? aiFmt(d.latestSoh) : 'Not found')}${aiRowTd(aiFmt(d.baseP4w))}${aiRowTd(d.latest ? aiFmt(d.latestP4w) : 'Not found')}${aiRowTd(d.followupArea)}</tr>`).join('');
+}
+function aiRenderArticleRows(id, groups, kind){
+  const body = document.getElementById(id); if (!body) return;
+  if (!groups.length) { body.innerHTML = `<tr><td colspan="4" class="ai-empty">No rows for this view.</td></tr>`; return; }
+  body.innerHTML = groups.map((g, idx) => `<tr data-ai-article-idx="${idx}" data-ai-article-kind="${kind}">
+    <td class="sc-sku-link" title="${aiEsc(g.article)}">${aiEsc(g.article)}</td>
+    ${aiRowTd(g.topIssue)}
+    ${aiRowTd(g.storesImproved)}
+    ${aiRowTd('+'+aiFmt(Math.round(g.totalImpact)), 'ai-pos')}
+  </tr>`).join('');
+  body.querySelectorAll('tr[data-ai-article-idx]').forEach(tr => {
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => {
+      const groups = tr.getAttribute('data-ai-article-kind') === 'stock' ? aiStockArticleGroups : aiSalesArticleGroups;
+      aiOpenArticleModal(groups[Number(tr.getAttribute('data-ai-article-idx'))]);
+    });
+  });
+}
+let aiActiveArticle = null;
+function aiOpenArticleModal(group){
+  if (!group || !aiCache) return;
+  aiActiveArticle = group;
+  // Pulled from the FULL details set (not just whichever table was clicked),
+  // so clicking an article from either Stock Position Improved or Sales
+  // Improved shows the complete store picture — both stock and sales figures
+  // for every store carrying that SKU, not just the dimension that improved.
+  const rows = aiCache.details.filter(d => (d.base.barcode || d.base.article) === group.barcode);
+  const overlay = document.getElementById('aiArticleModalOverlay');
+  const titleEl = document.getElementById('aiArticleModalTitle');
+  if (titleEl) titleEl.textContent = group.article || group.barcode;
+  const subEl = document.getElementById('aiArticleModalSub');
+  if (subEl) subEl.textContent = `${rows.length} store${rows.length===1?'':'s'} with feedback on this article for this comparison`;
+  const body = document.getElementById('aiArticleModalTableBody');
+  if (body) {
+    body.innerHTML = rows.map(d => `<tr>
+      ${aiRowTd(d.base.store)}
+      ${aiRowTd(d.issue)}
+      ${aiRowTd(aiFmt(d.baseSoh))}
+      ${aiRowTd((d.stockImpact>=0?'+':'')+aiFmt(d.stockImpact), d.stockImproved ? 'ai-pos' : '')}
+      ${aiRowTd(d.latest ? aiFmt(d.latestSoh) : 'Not found')}
+      ${aiRowTd(aiFmt(d.baseP4w))}
+      ${aiRowTd((d.salesImpact>=0?'+':'')+aiFmt(d.salesImpact), d.salesImproved ? 'ai-pos' : '')}
+      ${aiRowTd(d.latest ? aiFmt(d.latestP4w) : 'Not found')}
+      ${aiRowTd(d.latest ? d.latest.classification : 'Not found')}
+    </tr>`).join('');
   }
+  if (overlay) overlay.classList.add('open');
+}
+function aiCloseArticleModal(){
+  const overlay = document.getElementById('aiArticleModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  aiActiveArticle = null;
+}
+function aiExportArticleModal(){
+  if (!aiActiveArticle || !aiCache) return;
+  const group = aiActiveArticle;
+  const rows = aiCache.details.filter(d => (d.base.barcode || d.base.article) === group.barcode).map(d => ({
+    article: group.article,
+    barcode: group.barcode,
+    store: d.base.store || '',
+    startingIssue: d.issue,
+    sohBaseline: d.baseSoh,
+    sohImpact: d.stockImpact,
+    sohNow: d.latest ? d.latestSoh : '',
+    p4wBaseline: d.baseP4w,
+    p4wImpact: d.salesImpact,
+    p4wNow: d.latest ? d.latestP4w : '',
+    statusNow: d.latest ? d.latest.classification : 'Not found',
+  }));
+  if (!rows.length) { alert('No store data to export.'); return; }
+  const safeName = String(group.barcode || 'article').replace(/[^a-z0-9]/gi, '_');
+  if (typeof XLSX === 'undefined') {
+    const fields = Object.keys(rows[0]);
+    const csv = [fields.join(',')].concat(rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g,'""') + '"').join(','))).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `stockfix_article_${safeName}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Article detail');
+  XLSX.writeFile(wb, `stockfix_article_${safeName}.xlsx`);
 }
 function aiExportRows(){
   if (!aiCache) return [];
@@ -2482,7 +2718,7 @@ async function renderLeaderboardTab() {
   const kpiEl = document.getElementById('lbKpiRow');
   if (kpiEl) kpiEl.innerHTML = kpiCards.map(c => `
     <div class="icon-kpi-card ${c.cls}">
-      <div class="icon" style="background:${(c.cls === 'orange' || c.cls === 'amber') ? '#FF6C0E' : '#003B71'};">${c.icon}</div>
+      <div class="icon">${c.icon}</div>
       <div>
         <div class="kpi-label">${c.label}</div>
         <div class="kpi-value" style="${kpiValueStyle(c.value)}">${c.value}</div>
