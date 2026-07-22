@@ -767,6 +767,18 @@
 
     <button id="signInBtn" style="width:100%;background:#FF6C0E;color:#fff;border:none;border-radius:8px;padding:14px 0;font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(255,108,14,0.4);">Sign in with Microsoft</button>
 
+    <div style="margin-top:14px;text-align:center;">
+      <a href="#" id="clientLoginToggle" style="font-size:12px;color:#8497a8;text-decoration:underline;">Client login</a>
+    </div>
+
+    <form id="clientLoginForm" style="display:none;margin-top:14px;">
+      <input id="clientLoginEmail" type="email" placeholder="Email" autocomplete="username" required
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d7dee4;border-radius:8px;font-size:13px;margin-bottom:8px;">
+      <input id="clientLoginPassword" type="password" placeholder="Password" autocomplete="current-password" required
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d7dee4;border-radius:8px;font-size:13px;margin-bottom:10px;">
+      <button type="submit" id="clientLoginSubmit" style="width:100%;background:#0e2a47;color:#fff;border:none;border-radius:8px;padding:12px 0;font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;">Log In</button>
+    </form>
+
     <div id="authLoadingBox" class="auth-loading-box" aria-live="polite">
       <div class="auth-spinner" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -813,7 +825,29 @@ const MSAL_CONFIG = {
 // credential and filters to the caller's allowed client(s) before ever
 // returning a byte.
 const STOCKFIX_API_BASE = "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net/api/stockfix-data/";
+const CLIENT_LOGIN_URL = "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net/api/client-login";
 const API_SCOPE = "api://878107a0-1dfb-4697-a7a1-615e47e9f67b/access_as_user";
+
+// Two independent sign-in paths into the same dashboard: Meridian staff via
+// MSAL (unchanged, above), or an external client contact via their own
+// email/password (no Microsoft account at all) - authMode picks which
+// header apiFetchJson() attaches, everything downstream is unaware there
+// are two paths at all.
+let authMode = 'staff'; // 'staff' | 'client'
+let clientAuthToken = sessionStorage.getItem('clientAuthToken') || null;
+let clientAuthName = sessionStorage.getItem('clientAuthName') || '';
+
+function clientLogout() {
+  sessionStorage.removeItem('clientAuthToken');
+  sessionStorage.removeItem('clientAuthName');
+  sessionStorage.removeItem('clientAuthClient');
+  clientAuthToken = null;
+  authMode = 'staff';
+  document.getElementById("authOverlay").style.display = "";
+  document.body.classList.add("auth-pending");
+  const errEl = document.getElementById("authError");
+  if (errEl) errEl.textContent = "Your session has expired - please log in again.";
+}
 
 // =========================================================================
 // MSAL setup
@@ -891,11 +925,17 @@ async function getApiToken() {
 // plain JSON, same as every other route here. This also removes the pako
 // dependency from the hot path entirely.
 async function apiFetchJson(relativePath) {
-  const token = await getApiToken();
-  const res = await fetch(STOCKFIX_API_BASE + relativePath, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!res.ok) throw new Error(`API request failed (${res.status}): ${relativePath}`);
+  const headers = {};
+  if (authMode === 'client') {
+    headers['X-Client-Auth'] = clientAuthToken;
+  } else {
+    headers['Authorization'] = `Bearer ${await getApiToken()}`;
+  }
+  const res = await fetch(STOCKFIX_API_BASE + relativePath, { headers });
+  if (!res.ok) {
+    if (res.status === 403 && authMode === 'client') clientLogout();
+    throw new Error(`API request failed (${res.status}): ${relativePath}`);
+  }
   return res.json();
 }
 
@@ -1038,6 +1078,81 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
     clearAuthLoading();
   }
 });
+
+// =========================================================================
+// Client login (external contacts, no Microsoft account)
+// =========================================================================
+document.getElementById("clientLoginToggle").addEventListener("click", (e) => {
+  e.preventDefault();
+  const form = document.getElementById("clientLoginForm");
+  const signIn = document.getElementById("signInBtn");
+  const toggle = document.getElementById("clientLoginToggle");
+  const showingForm = form.style.display !== "none";
+  form.style.display = showingForm ? "none" : "block";
+  signIn.style.display = showingForm ? "block" : "none";
+  toggle.textContent = showingForm ? "Client login" : "Sign in with Microsoft instead";
+});
+
+document.getElementById("clientLoginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("authError");
+  const btn = document.getElementById("clientLoginSubmit");
+  const email = document.getElementById("clientLoginEmail").value.trim();
+  const password = document.getElementById("clientLoginPassword").value;
+  errEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Logging in...";
+  try {
+    const res = await fetch(CLIENT_LOGIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Login failed");
+
+    authMode = 'client';
+    clientAuthToken = data.token;
+    clientAuthName = data.name || '';
+    sessionStorage.setItem('clientAuthToken', clientAuthToken);
+    sessionStorage.setItem('clientAuthName', clientAuthName);
+    sessionStorage.setItem('clientAuthClient', data.client || '');
+
+    setAuthLoading("Loading dashboard...", "Please wait while StockFix loads your data.");
+    await loadAllData();
+    lockClientFilterToOwnClient(data.client);
+  } catch (err) {
+    console.error(err);
+    errEl.textContent = "Invalid email or password.";
+    btn.disabled = false;
+    btn.textContent = "Log In";
+    // Not clearAuthLoading() - that unconditionally re-shows "Sign in with
+    // Microsoft", which shouldn't reappear while the client-login form is
+    // the one in view.
+    document.getElementById("authLoadingBox").classList.remove("active");
+  }
+});
+
+function lockClientFilterToOwnClient(clientName) {
+  // Match case/whitespace-insensitively against the dropdown's own deduped
+  // option values (initUI() already normalizes those the same way) rather
+  // than trusting the stored name to be byte-identical to whatever's in the
+  // rollup data - same slug/casing mismatch class of bug this project has
+  // hit before, avoided here by matching however the dropdown itself does.
+  const target = (clientName || '').trim().toUpperCase();
+  let matched = clientName;
+  if (clientFilterEl) {
+    const opt = Array.from(clientFilterEl.options).find(o => o.value.trim().toUpperCase() === target);
+    if (opt) matched = opt.value;
+  }
+  state.client = matched;
+  state.page = 1;
+  if (clientFilterEl) {
+    clientFilterEl.value = matched;
+    clientFilterEl.disabled = true;
+  }
+  rerenderAll();
+}
 
 // =========================================================================
 // Rendering — same logic as the preview build, now driven by live data
@@ -3015,6 +3130,21 @@ async function renderLeaderboardTab() {
 
 // Auto-resume session if already signed in (e.g. page refresh)
 (async () => {
+  if (clientAuthToken) {
+    // Client-contact session (sessionStorage), same idea as MSAL's own
+    // cacheLocation: 'sessionStorage' choice above - survives a refresh,
+    // gone when the tab closes.
+    authMode = 'client';
+    try {
+      setAuthLoading("Loading dashboard...", "Please wait while StockFix reconnects to your session.");
+      await loadAllData();
+      lockClientFilterToOwnClient(sessionStorage.getItem('clientAuthClient') || '');
+    } catch (e) {
+      console.warn('Silent client-session resume failed, user must log in again', e);
+      clientLogout();
+    }
+    return;
+  }
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
     try {
