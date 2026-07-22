@@ -794,7 +794,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
 // =========================================================================
@@ -806,10 +805,15 @@ const MSAL_CONFIG = {
   redirectUri: "https://meridian-group-za.github.io/stockfix-dashboard/",
 };
 
-// SharePoint site + folder where process_stockfix.py output was uploaded.
-const SHAREPOINT_HOSTNAME = "meridiangroupza.sharepoint.com";
-const SHAREPOINT_SITE_PATH = "/sites/MeridianNexus";
-const DASHBOARD_DATA_FOLDER = "Stock Fix/Reporting/dashboard-data";
+// Server-side data proxy on the Meridian Dashboards Function App - the
+// browser no longer fetches SharePoint files directly with its own
+// delegated Graph token (that gave any signed-in user all ~25 clients'
+// rows, mixed together, with only a client-side dropdown hiding the rest).
+// Instead it calls this API, which fetches server-side with an app-only
+// credential and filters to the caller's allowed client(s) before ever
+// returning a byte.
+const STOCKFIX_API_BASE = "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net/api/stockfix-data/";
+const API_SCOPE = "api://878107a0-1dfb-4697-a7a1-615e47e9f67b/access_as_user";
 
 // =========================================================================
 // MSAL setup
@@ -822,8 +826,6 @@ const msalInstance = new msal.PublicClientApplication({
   },
   cache: { cacheLocation: "sessionStorage" },
 });
-
-const GRAPH_SCOPES = ["Sites.Read.All"];
 
 function setAuthLoading(title, subtitle) {
   const box = document.getElementById("authLoadingBox");
@@ -849,8 +851,7 @@ msalInstance.handleRedirectPromise().then(async (result) => {
     setAuthLoading("Loading dashboard...", "Sign-in complete. Please wait while StockFix loads your data.");
     // Returned from a redirect login — load data
     try {
-      const token = await getGraphToken();
-      await loadAllData(token);
+      await loadAllData();
     } catch (e) {
       console.error("Post-redirect data load failed:", e);
       const errEl = document.getElementById("authError");
@@ -862,8 +863,7 @@ msalInstance.handleRedirectPromise().then(async (result) => {
     if (accounts.length > 0) {
       setAuthLoading("Loading dashboard...", "Please wait while StockFix reconnects to your session.");
       try {
-        const token = await getGraphToken();
-        await loadAllData(token);
+        await loadAllData();
       } catch (e) {
         // Silent token failed — show login screen
         console.warn("Silent token failed, showing login screen:", e);
@@ -873,77 +873,30 @@ msalInstance.handleRedirectPromise().then(async (result) => {
   }
 }).catch(e => console.error("handleRedirectPromise error:", e));
 
-async function getGraphToken() {
+async function getApiToken() {
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) throw new Error("Not signed in");
   try {
-    const result = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
+    const result = await msalInstance.acquireTokenSilent({ scopes: [API_SCOPE], account: accounts[0] });
     return result.accessToken;
   } catch (e) {
     // Fall back to redirect (not popup) for token refresh
-    await msalInstance.acquireTokenRedirect({ scopes: GRAPH_SCOPES, account: accounts[0] });
+    await msalInstance.acquireTokenRedirect({ scopes: [API_SCOPE], account: accounts[0] });
     return null; // Page will redirect — never reaches here
   }
 }
 
-async function graphFetch(url, accessToken, asArrayBuffer) {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!res.ok) throw new Error(`Graph request failed (${res.status}): ${url}`);
-  return asArrayBuffer ? res.arrayBuffer() : res.json();
-}
-
-let siteId = null;
-let driveId = null;
-
-async function resolveSiteAndDrive(token) {
-  // Site/drive IDs never change for this tenant — cache them for the browser
-  // session so a page refresh doesn't re-resolve them on every load.
-  const cached = sessionStorage.getItem('stockfix_site_drive');
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached);
-      if (parsed.siteId && parsed.driveId) { siteId = parsed.siteId; driveId = parsed.driveId; return; }
-    } catch (e) { /* fall through and re-resolve */ }
-  }
-  // $expand=drive returns the site's default drive inline, in the same response,
-  // instead of a separate round-trip to /sites/{id}/drive. One less network hop
-  // on every sign-in / cold load.
-  const site = await graphFetch(
-    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOSTNAME}:${SHAREPOINT_SITE_PATH}?$expand=drive`,
-    token
-  );
-  siteId = site.id;
-  driveId = site.drive && site.drive.id;
-  if (!driveId) {
-    // Fallback in case $expand isn't honoured for some reason — keeps the old
-    // two-step behaviour as a safety net rather than failing outright.
-    const drive = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive`, token);
-    driveId = drive.id;
-  }
-  try { sessionStorage.setItem('stockfix_site_drive', JSON.stringify({ siteId, driveId })); } catch (e) { /* storage full/unavailable — non-fatal */ }
-}
-
-async function fetchJsonFile(token, relativePath) {
-  // Plain string template literal path (not encodeURIComponent) — matches the
-  // working pattern used for the P&G Initiatives / Staedtler dashboards on this tenant.
-  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
-  return graphFetch(url, token);
-}
-
-// =========================================================================
-// Decompress + parse a week's data. This blocks the main thread while it
-// runs (a real cost on a 100k+ line week) — a Web Worker version of this was
-// tried, but it was unreliable in this environment (likely a proxy/CSP
-// blocking importScripts from a blob-created worker), and a broken worker is
-// worse than no worker: it either hangs indefinitely or, with a timeout
-// safety net, adds a flat multi-second tax before falling back anyway.
-// Plain and synchronous is the version that has actually worked reliably.
-// =========================================================================
-async function fetchGzJsonlFile(token, relativePath) {
-  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
-  const buf = await graphFetch(url, token, true);
-  const text = pako.inflate(new Uint8Array(buf), { to: "string" });
-  return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
+// Decompression/JSONL-parsing for the per-week file now happens server-side
+// (see function_app.py's stockfix_data route) - the browser just gets back
+// plain JSON, same as every other route here. This also removes the pako
+// dependency from the hot path entirely.
+async function apiFetchJson(relativePath) {
+  const token = await getApiToken();
+  const res = await fetch(STOCKFIX_API_BASE + relativePath, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`API request failed (${res.status}): ${relativePath}`);
+  return res.json();
 }
 
 // =========================================================================
@@ -1004,16 +957,12 @@ function buildLeaderboardRollup(rows) {
   })).filter(r => r.week);
 }
 
-async function loadAllData(token) {
-  document.getElementById("authStatus").textContent = "Resolving SharePoint site...";
-  setAuthLoading("Loading dashboard...", "Connecting to SharePoint...");
-  await resolveSiteAndDrive(token);
-
+async function loadAllData() {
   document.getElementById("authStatus").textContent = "Loading summary + week index...";
   setAuthLoading("Loading dashboard...", "Loading summary and week index...");
   const [summaryRows, weeksIdx] = await Promise.all([
-    fetchJsonFile(token, `${DASHBOARD_DATA_FOLDER}/summary.json`),
-    fetchJsonFile(token, `${DASHBOARD_DATA_FOLDER}/weeks_index.json`),
+    apiFetchJson("summary.json"),
+    apiFetchJson("weeks_index.json"),
   ]);
   buildRollups(summaryRows);
   weeksIndex = weeksIdx;
@@ -1021,7 +970,7 @@ async function loadAllData(token) {
   document.getElementById("authStatus").textContent = "Loading leaderboard rollup...";
   setAuthLoading("Loading dashboard...", "Loading leaderboard data...");
   try {
-    const lbRows = await fetchJsonFile(token, `${DASHBOARD_DATA_FOLDER}/leaderboard_rollup.json`);
+    const lbRows = await apiFetchJson("leaderboard_rollup.json");
     buildLeaderboardRollup(lbRows);
   } catch (e) {
     console.warn('leaderboard_rollup.json not found or failed to load; Leaderboard will fall back to no rollup data.', e);
@@ -1032,7 +981,7 @@ async function loadAllData(token) {
 
   document.getElementById("authStatus").textContent = `Loading latest week (${LATEST_WEEK})...`;
   setAuthLoading("Loading dashboard...", `Loading latest week (${LATEST_WEEK})...`);
-  await loadWeek(token, LATEST_WEEK);
+  await loadWeek(LATEST_WEEK);
 
   document.getElementById("authStatus").textContent = "Connected";
   document.getElementById("authOverlay").style.display = "none";
@@ -1040,12 +989,11 @@ async function loadAllData(token) {
   initUI();
 }
 
-async function loadWeek(token, week) {
+async function loadWeek(week) {
   if (weekRowCache[week]) return weekRowCache[week];
   const entry = weeksIndex.find(w => w.week === week);
   if (!entry) return [];
-  const gzPath = `${DASHBOARD_DATA_FOLDER}/${entry.file}.gz`; // weeks/week_YYYY-MM-DD.jsonl.gz
-  const rows = await fetchGzJsonlFile(token, gzPath);
+  const rows = await apiFetchJson(entry.file); // entry.file = "weeks/week_YYYY-MM-DD.jsonl" - server returns it already decompressed/parsed
   weekRowCache[week] = rows;
   return rows;
 }
@@ -1060,7 +1008,7 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Signing in...";
   try {
-    await msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+    await msalInstance.loginRedirect({ scopes: [API_SCOPE] });
     // Page will redirect to Microsoft — handleRedirectPromise() handles the return
   } catch (e) {
     console.error(e);
@@ -1150,8 +1098,7 @@ function initUI() {
   weekFilterEl.addEventListener('change', async e => {
     state.week = e.target.value; state.page = 1;
     document.getElementById('authStatus').textContent = `Loading week ${state.week}...`;
-    const token = await getGraphToken();
-    await loadWeek(token, state.week);
+    await loadWeek(state.week);
     document.getElementById('authStatus').textContent = 'Connected';
     rerenderAll();
   });
@@ -1259,8 +1206,7 @@ async function ensurePrevWeekLoaded(){
   const pk = getPrevWeekKey();
   if (!pk || weekRowCache[pk]) return;
   try {
-    const token = await getGraphToken();
-    await loadWeek(token, pk);
+    await loadWeek(pk);
     rerenderAll(); // re-render once the prior week's data is in, so deltas populate
   } catch (e) {
     console.warn('Could not load prior week for comparison', e);
@@ -2082,8 +2028,7 @@ async function aiBuildData(impactWeek){
   if (loading) { loading.style.display = 'block'; loading.textContent = `Loading Action Impact data for ${baselineWeek} to ${impactWeek}…`; }
   aiLoadingKey = cacheKey;
   try {
-    const token = await getGraphToken();
-    await Promise.all([loadWeek(token, baselineWeek), loadWeek(token, impactWeek)]);
+    await Promise.all([loadWeek(baselineWeek), loadWeek(impactWeek)]);
   } finally {
     if (loading) loading.style.display = 'none';
   }
@@ -2977,8 +2922,7 @@ async function renderLeaderboardTab() {
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
     try {
-      const token = await getGraphToken();
-      await loadAllData(token);
+      await loadAllData();
     } catch (e) {
       console.warn('Silent resume failed, user must sign in again', e);
     }
