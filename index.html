@@ -1054,7 +1054,14 @@ function initUI() {
   classFilterEl = document.getElementById('classFilter');
   statusFilterEl = document.getElementById('statusFilter');
 
-  const clients = [...new Set(rollup.map(r => r.client))].sort();
+  // Dedup by normalized casing, not raw string - source files have used
+  // inconsistent casing for the same client name across different weeks
+  // (e.g. "Aspen" vs "ASPEN"), which used to be invisible buried in a
+  // 25-client list but shows up as a visible duplicate now that a
+  // single-client view only has one or two variants to show.
+  const clientSeen = new Map();
+  rollup.forEach(r => { const k = (r.client || '').toUpperCase(); if (k && !clientSeen.has(k)) clientSeen.set(k, r.client); });
+  const clients = [...clientSeen.values()].sort();
   clients.forEach(c => {
     const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
     clientFilterEl.appendChild(opt);
@@ -1955,7 +1962,16 @@ function aiIssue(cls){
   return aiText(cls) || 'Other';
 }
 function aiIsNoSalesIssue(issue){ return issue.includes('No Sales'); }
-function aiKey(r){ return `${aiText(r.store).toLowerCase()}|${aiText(r.barcode).toLowerCase()}`; }
+// Barcodes sometimes come through as "6001390114197.0" (a spreadsheet column
+// typed as a number somewhere upstream) instead of a plain string - and
+// whether that happens is inconsistent between different weeks' export
+// files, so the exact same physical barcode can look different week to
+// week. Strip a trailing ".0" before matching so baseline/impact comparison
+// isn't silently broken by that formatting difference (confirmed via a
+// server-side diagnostic: 34,279 baseline keys, 0 matched, every sample
+// barcode carrying this exact ".0" suffix).
+function aiNormBarcode(b){ return aiText(b).toLowerCase().replace(/\.0$/, ''); }
+function aiKey(r){ return `${aiText(r.store).toLowerCase()}|${aiNormBarcode(r.barcode)}`; }
 function aiFmt(n){ return Number(n||0).toLocaleString(); }
 function aiEsc(s){ return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function aiImpactWeekValue(){ return document.getElementById('aiImpactWeek') ? document.getElementById('aiImpactWeek').value : LATEST_WEEK; }
@@ -2072,7 +2088,7 @@ async function aiBuildData(impactWeek){
 function aiGroupByArticle(details, filterFn, impactField){
   const groups = new Map();
   details.filter(filterFn).forEach(d => {
-    const key = d.base.barcode || d.base.article;
+    const key = aiNormBarcode(d.base.barcode) || d.base.article;
     if (!groups.has(key)) groups.set(key, { barcode: d.base.barcode, article: d.base.article, issueCounts: {}, totalImpact: 0, stores: new Set() });
     const g = groups.get(key);
     g.totalImpact += Math.max(0, d[impactField]);
@@ -2397,7 +2413,7 @@ let scStatusFilter = 'all'; // 'all' | 'pending' | 'actioned' — which rows cou
 let scGroups = [];
 let scActiveGroup = null;
 
-function scGroupKey(r){ return `${aiText(r.barcode).toLowerCase()}|${aiText(r.action).toLowerCase()}`; }
+function scGroupKey(r){ return `${aiNormBarcode(r.barcode)}|${aiText(r.action).toLowerCase()}`; }
 
 function scGroupRows(rows){
   const map = new Map();
