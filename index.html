@@ -1054,13 +1054,14 @@ function initUI() {
   classFilterEl = document.getElementById('classFilter');
   statusFilterEl = document.getElementById('statusFilter');
 
-  // Dedup by normalized casing, not raw string - source files have used
-  // inconsistent casing for the same client name across different weeks
-  // (e.g. "Aspen" vs "ASPEN"), which used to be invisible buried in a
-  // 25-client list but shows up as a visible duplicate now that a
-  // single-client view only has one or two variants to show.
+  // Dedup by normalized casing AND whitespace, not raw string - source files
+  // have used inconsistent formatting for the same client name across
+  // different weeks (e.g. "Aspen" vs "ASPEN", or a stray trailing space),
+  // which used to be invisible buried in a 25-client list but shows up as a
+  // visible duplicate now that a single-client view only has one or two
+  // variants to show.
   const clientSeen = new Map();
-  rollup.forEach(r => { const k = (r.client || '').toUpperCase(); if (k && !clientSeen.has(k)) clientSeen.set(k, r.client); });
+  rollup.forEach(r => { const k = (r.client || '').trim().toUpperCase(); if (k && !clientSeen.has(k)) clientSeen.set(k, (r.client || '').trim()); });
   const clients = [...clientSeen.values()].sort();
   clients.forEach(c => {
     const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
