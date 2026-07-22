@@ -906,6 +906,7 @@ let rollup = [];          // built client-side from summary.json: [{week, client
 let actionStatusRollup = [];
 let summaryDetailRows = []; // full summary.json rows, kept for fast filtered prior-week KPI deltas
 let leaderboardRollup = []; // Phase 2: pre-aggregated capture compliance rows for Leaderboard
+let actionImpactRollup = []; // pre-aggregated baseline->target week comparison rows (process_stockfix.py's own matching logic - authoritative, not recomputed client-side)
 let weeksIndex = [];
 let weekRowCache = {};    // week -> full row array, loaded on demand
 let LATEST_WEEK = null;
@@ -975,6 +976,12 @@ async function loadAllData() {
   } catch (e) {
     console.warn('leaderboard_rollup.json not found or failed to load; Leaderboard will fall back to no rollup data.', e);
     buildLeaderboardRollup([]);
+  }
+  try {
+    actionImpactRollup = await apiFetchJson("action_impact_rollup.json");
+  } catch (e) {
+    console.warn('action_impact_rollup.json not found or failed to load; Action Impact KPIs will fall back to zero.', e);
+    actionImpactRollup = [];
   }
   LATEST_WEEK = weeksIndex[weeksIndex.length - 1].week;
   state.week = LATEST_WEEK;
@@ -2104,6 +2111,55 @@ function aiGroupByArticle(details, filterFn, impactField){
     topIssue: Object.entries(g.issueCounts).sort((a,b)=>b[1]-a[1])[0][0],
   })).sort((a,b) => b.totalImpact - a.totalImpact);
 }
+// KPI cards / Impact Summary / Issue breakdown come from
+// action_impact_rollup.json - process_stockfix.py's own server-side
+// comparison, matched with its own (client|store|sku, uppercase) key and
+// unaffected by the barcode-formatting issue found in the row-level
+// reimplementation below. That row-level code (aiBuildData/details) is kept
+// only for the article-level detail tables, since the rollup is aggregated
+// and has no per-SKU rows to show there.
+function aiRollupAggregate(baselineWeek, impactWeek){
+  const rows = actionImpactRollup.filter(r =>
+    r.baselineWeek === baselineWeek && r.targetWeek === impactWeek &&
+    (state.client === '__all__' || r.client === state.client) &&
+    (state.banner === '__all__' || r.banner === state.banner) &&
+    (state.region === '__all__' || r.region === state.region)
+  );
+  const sum = (key) => rows.reduce((s,r) => s + (Number(r[key]) || 0), 0);
+  const feedbackTasks = sum('feedbackTasks');
+  const matchedTasks = sum('matchedTasks');
+  const overstockTasks = sum('overstockTasks');
+  const overstockReducedTasks = sum('overstockReducedTasks');
+  const availabilityRiskTasks = sum('availabilityRiskTasks');
+  const availabilityRestoredTasks = sum('availabilityRestoredTasks');
+  const salesImprovedTasks = sum('salesImprovedTasks');
+  const noSalesTasks = sum('noSalesTasks');
+  const noSalesResolvedTasks = sum('noSalesResolvedTasks');
+  const negativeSohTasks = sum('negativeSohTasks');
+  const negativeSohResolvedTasks = sum('negativeSohResolvedTasks');
+  const stockImprovedTasks = overstockReducedTasks + availabilityRestoredTasks + negativeSohResolvedTasks;
+  // Capped at matchedTasks: the rollup counts each recovery bucket
+  // independently (a task can count as both stock- and sales-improved), so a
+  // naive sum could exceed the real number of matched tasks - cap it rather
+  // than risk showing an impossible "recovered > matched" number.
+  const recoveredTasks = Math.min(matchedTasks, stockImprovedTasks + salesImprovedTasks + noSalesResolvedTasks);
+  const openTasks = Math.max(0, feedbackTasks - recoveredTasks);
+  return {
+    feedbackTasks, matchedTasks, stockImprovedTasks, salesImprovedTasks,
+    overstockReducedTasks, noSalesResolvedTasks, openTasks,
+    overstockSohReduced: sum('overstockSohReduced'),
+    availabilitySohRestored: sum('availabilitySohRestored'),
+    salesUnitsGained: sum('salesUnitsGained'),
+    impactedStores: sum('impactedStores'),
+    issueSummary: {
+      'Negative SOH': {total: negativeSohTasks, recovered: negativeSohResolvedTasks},
+      'Overstock': {total: overstockTasks, recovered: overstockReducedTasks},
+      'Availability Risk': {total: availabilityRiskTasks, recovered: availabilityRestoredTasks},
+      'No Sales': {total: noSalesTasks, recovered: noSalesResolvedTasks},
+    },
+    hasRollupData: rows.length > 0,
+  };
+}
 async function renderActionImpactTab(force){
   const tab = document.getElementById('tab-actionimpact');
   if (!tab) return;
@@ -2111,27 +2167,37 @@ async function renderActionImpactTab(force){
   scInitControls();
   const impactWeek = aiImpactWeekValue() || LATEST_WEEK;
   const result = await aiBuildData(impactWeek);
-  try { aiRender(result); } catch (e) { console.error('Action Impact: aiRender failed', e); }
+  const rollupAgg = aiRollupAggregate(result.baselineWeek, result.impactWeek);
+  try { aiRender(result, rollupAgg); } catch (e) { console.error('Action Impact: aiRender failed', e); }
   try { scRender(); } catch (e) { console.error('Action Impact: Supply Chain Signals render failed', e); }
 }
 let aiStockArticleGroups = [];
 let aiSalesArticleGroups = [];
-function aiRender(result){
+function aiRender(result, rollupAgg){
   const details = result.details || [];
   const stockArticleGroups = aiGroupByArticle(details, d => d.stockImproved, 'stockImpact').slice(0,25);
   const salesArticleGroups = aiGroupByArticle(details, d => d.salesImproved, 'salesImpact').slice(0,25);
   aiStockArticleGroups = stockArticleGroups;
   aiSalesArticleGroups = salesArticleGroups;
   const followRows = details.filter(d => !d.recovered).slice(0,14);
-  const stockImproved = details.filter(d=>d.stockImproved).length;
-  const salesImproved = details.filter(d=>d.salesImproved).length;
-  const overstockReduced = details.filter(d=>d.issue==='Overstock' && d.stockImproved).length;
-  const noSalesReduced = details.filter(d=>aiIsNoSalesIssue(d.issue) && d.noSalesFlagReduced).length;
-  const sohCorrected = details.filter(d=>d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
-  const salesUplift = details.filter(d=>d.salesImproved).reduce((s,d)=>s+Math.max(0,d.salesImpact),0);
-  const overstockReducedUnits = details.filter(d=>d.issue==='Overstock' && d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
-  const impactedStores = new Set(details.filter(d=>d.stockImproved || d.salesImproved).map(d=>d.base.store)).size;
-  const open = details.filter(d=>!d.recovered).length;
+
+  // KPI cards / Impact Summary / issue bars come from the authoritative
+  // rollup when it has data for this baseline/impact/client selection;
+  // falling back to the row-level numbers only if the rollup genuinely has
+  // nothing for this combination (e.g. a brand-new client not in the
+  // rollup's build yet), so the page never just goes blank.
+  const useRollup = rollupAgg && rollupAgg.hasRollupData;
+  const stockImproved = useRollup ? rollupAgg.stockImprovedTasks : details.filter(d=>d.stockImproved).length;
+  const salesImproved = useRollup ? rollupAgg.salesImprovedTasks : details.filter(d=>d.salesImproved).length;
+  const overstockReduced = useRollup ? rollupAgg.overstockReducedTasks : details.filter(d=>d.issue==='Overstock' && d.stockImproved).length;
+  const noSalesReduced = useRollup ? rollupAgg.noSalesResolvedTasks : details.filter(d=>aiIsNoSalesIssue(d.issue) && d.noSalesFlagReduced).length;
+  const sohCorrected = useRollup ? (rollupAgg.overstockSohReduced + rollupAgg.availabilitySohRestored) : details.filter(d=>d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
+  const salesUplift = useRollup ? rollupAgg.salesUnitsGained : details.filter(d=>d.salesImproved).reduce((s,d)=>s+Math.max(0,d.salesImpact),0);
+  const overstockReducedUnits = useRollup ? rollupAgg.overstockSohReduced : details.filter(d=>d.issue==='Overstock' && d.stockImproved).reduce((s,d)=>s+Math.max(0,d.stockImpact),0);
+  const impactedStores = useRollup ? rollupAgg.impactedStores : new Set(details.filter(d=>d.stockImproved || d.salesImproved).map(d=>d.base.store)).size;
+  const feedbackedCount = useRollup ? rollupAgg.feedbackTasks : details.length;
+  const open = useRollup ? rollupAgg.openTasks : details.filter(d=>!d.recovered).length;
+  const issueSummaryForBars = useRollup ? rollupAgg.issueSummary : result.issueSummary;
 
   const bChip = document.getElementById('aiBaselineChip'); if (bChip) bChip.textContent = `Baseline: ${result.baselineWeek || 'not available'} · feedback captured`;
   const iChip = document.getElementById('aiImpactChip'); if (iChip) iChip.textContent = `Impact: ${result.impactWeek || 'selected week'}`;
@@ -2145,7 +2211,7 @@ function aiRender(result){
     clock:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
   };
   const kpis = [
-    {lbl:'Feedbacked SKUs', val:aiFmt(details.length), note:'Feedback not blank 4 weeks ago', cls:'', icon:AI_ICONS.box},
+    {lbl:'Feedbacked SKUs', val:aiFmt(feedbackedCount), note:'Feedback not blank 4 weeks ago', cls:'', icon:AI_ICONS.box},
     {lbl:'Stock Position Improved', val:aiFmt(stockImproved), note:'SOH moved in the right direction', cls:'green', icon:AI_ICONS.trendUp},
     {lbl:'Sales Improved', val:aiFmt(salesImproved), note:'P4W sales increased', cls:'blue', icon:AI_ICONS.bar},
     {lbl:'Overstock Reduced', val:aiFmt(overstockReduced), note:'SOH came down where stock was high', cls:'amber', icon:AI_ICONS.trendDn},
@@ -2160,7 +2226,7 @@ function aiRender(result){
   // rest of the tab (or the Supply Chain Signals panel called after aiRender)
   // from rendering.
   const safeStep = (label, fn) => { try { fn(); } catch (e) { console.error(`Action Impact: ${label} failed`, e); } };
-  safeStep('issue bars', () => aiRenderIssueBars(result.issueSummary || {}));
+  safeStep('issue bars', () => aiRenderIssueBars(issueSummaryForBars || {}));
   safeStep('impact summary', () => aiRenderImpactSummary({sohCorrected, overstockReducedUnits, salesUplift, noSalesReduced, impactedStores}));
   safeStep('stock table', () => aiRenderArticleRows('aiStockTableBody', stockArticleGroups, 'stock'));
   safeStep('sales table', () => aiRenderArticleRows('aiSalesTableBody', salesArticleGroups, 'sales'));
