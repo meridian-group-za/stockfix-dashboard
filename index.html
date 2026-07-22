@@ -958,7 +958,20 @@ function buildLeaderboardRollup(rows) {
   })).filter(r => r.week);
 }
 
+// loadAllData() is called from three separate places (the redirect-login
+// branch, the already-signed-in branch, and a standalone check at the
+// bottom of the file) - on a normal already-signed-in page load, two of
+// those fire back to back. Without this guard, everything ran twice,
+// including initUI()'s dropdown population (hence "ASPEN" appearing twice)
+// - sharing one in-flight promise means a second call just waits for the
+// first instead of redoing the whole load.
+let _loadAllDataPromise = null;
 async function loadAllData() {
+  if (_loadAllDataPromise) return _loadAllDataPromise;
+  _loadAllDataPromise = _loadAllDataImpl();
+  return _loadAllDataPromise;
+}
+async function _loadAllDataImpl() {
   document.getElementById("authStatus").textContent = "Loading summary + week index...";
   setAuthLoading("Loading dashboard...", "Loading summary and week index...");
   const [summaryRows, weeksIdx] = await Promise.all([
