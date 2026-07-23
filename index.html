@@ -1995,7 +1995,7 @@ function renderTable(){
   } else {
     tbody.innerHTML = pageRows.map(r => {
       const imgCell = r.image
-        ? `<td><a href="${r.image}" target="_blank" style="color:#003B71;font-size:10px;font-weight:800;">&#128247;</a></td>`
+        ? `<td><a href="${fixImageUrl(r.image)}" target="_blank" style="color:#003B71;font-size:10px;font-weight:800;">&#128247;</a></td>`
         : '<td style="color:#ccc;">—</td>';
       return `<tr>
         ${td(r.week)}
@@ -2146,6 +2146,15 @@ function renderWhatWasWrong(){
 
 
 
+// Some rows' image field was generated against this dashboard's own GitHub
+// Pages domain instead of the actual Stock Fix action-capture app that hosts
+// the images (stockfixapp.online) - rewrite so the links work until the
+// upstream export that builds this field is fixed at the source.
+function fixImageUrl(url){
+  if (!url) return url;
+  return String(url).replace(/^https?:\/\/meridian-group-za\.github\.io/i, 'https://stockfixapp.online');
+}
+
 // ---------- Rep & Manager Performance ----------
 function isActioned(status){
   return status === 'Completed' || status === 'Fixed' || (status||'').includes('Actioned');
@@ -2160,7 +2169,7 @@ function exportCsv(){
   const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
   const esc = v => { if (v==null||v==='') return ''; const s=String(v).replace(/"/g,'""'); return /[,"\n]/.test(s)?`"${s}"`:s; };
-  const lines = [headers.join(','), ...rows.map(r => fields.map(f => esc(r[f])).join(','))];
+  const lines = [headers.join(','), ...rows.map(r => fields.map(f => esc(f === 'image' ? fixImageUrl(r[f]) : r[f])).join(','))];
   const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `stockfix_${state.week}.csv`; document.body.appendChild(a); a.click();
@@ -2173,7 +2182,7 @@ function exportXlsx(){
   if (typeof XLSX === 'undefined') { alert('Excel export library not loaded yet, please try again.'); return; }
   const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
-  const data = [headers, ...rows.map(r => fields.map(f => r[f] ?? ''))];
+  const data = [headers, ...rows.map(r => fields.map(f => (f === 'image' ? fixImageUrl(r[f]) : r[f]) ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(data);
   // Column widths
   ws['!cols'] = [10,10,8,10,16,16,20,12,28,18,22,10,22,6,22,30].map(w => ({wch:w}));
