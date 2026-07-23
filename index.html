@@ -1676,7 +1676,22 @@ function renderActionedPendingBars(){
 }
 
 function renderClassificationSummaryTable(){
-  const rows = filteredRows();
+  // Ignore the Status filter here, same reason as renderTaskBreakdown above:
+  // this table computes its own Actioned/Pending split, so pre-filtering to
+  // a status (default 'Completed') would collapse every row to a meaningless
+  // 100% before that split ever runs.
+  const rows = currentWeekRows().filter(r => {
+    if (state.client !== '__all__' && r.client !== state.client) return false;
+    if (state.banner !== '__all__' && r.banner !== state.banner) return false;
+    if (state.region !== '__all__' && r.region !== state.region) return false;
+    if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (state.search) {
+      const s = state.search.toLowerCase();
+      const hay = [r.store, r.article, r.barcode, r.rep, r.manager].join(' ').toLowerCase();
+      if (!hay.includes(s)) return false;
+    }
+    return true;
+  });
   const classes = Object.keys(CLASS_HEX);
   const body = document.getElementById('classSummaryBody');
   const totals = {total:0, actioned:0, pending:0};
