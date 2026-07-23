@@ -3013,6 +3013,29 @@ async function renderLeaderboardTab() {
   const allReps     = [...new Set(latestRows.map(r => r.rep).filter(Boolean))];
   const latestM = calcMetrics(latestRows);
 
+  // vs-prior-week deltas, same pattern as the Overview tab's KPI cards -
+  // leaderboard_rollup.json already has every week in memory, so the prior
+  // week's rows don't need a separate fetch the way raw weekly detail does.
+  const latestWeekKey = weekCols.length ? weekCols[weekCols.length - 1].week : null;
+  const latestWeekIdx = latestWeekKey ? weeksIndex.findIndex(w => w.week === latestWeekKey) : -1;
+  const prevWeekKey = latestWeekIdx > 0 ? weeksIndex[latestWeekIdx - 1].week : null;
+  const prevRows = prevWeekKey ? filterRows((leaderboardRollup || []).filter(r => r.week === prevWeekKey)) : [];
+  const prevM = calcMetrics(prevRows);
+  const prevManagerCount = new Set(prevRows.map(r => r.manager).filter(Boolean)).size;
+  const prevRepCount = new Set(prevRows.map(r => r.rep).filter(Boolean)).size;
+
+  function lbDelta(curr, prev, goodUp, isPct) {
+    if (!prevWeekKey || prev === null || prev === undefined) return '';
+    const diff = curr - prev;
+    if (diff === 0) return `<div class="kpi-delta" style="color:var(--muted);">flat vs prior</div>`;
+    const up = diff > 0;
+    const good = goodUp ? up : !up;
+    const cls = good ? 'delta-good' : 'delta-bad';
+    const arrow = up ? '↑' : '↓';
+    const val = isPct ? Math.abs(diff).toFixed(1) + ' pts' : Math.abs(diff).toLocaleString();
+    return `<div class="kpi-delta ${cls}">${arrow} ${val} vs prior</div>`;
+  }
+
   const regionMap = {};
   latestRows.forEach(r => { const reg = r.region || 'Unknown'; regionMap[reg] = regionMap[reg] || []; regionMap[reg].push(r); });
   const topRegionEntry = Object.entries(regionMap).map(([reg, rws]) => ({ reg, ...calcMetrics(rws) }))
@@ -3031,12 +3054,12 @@ async function renderLeaderboardTab() {
   const SVG_STAR    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
   const kpiCards = [
-    { icon: SVG_USERS,  label: 'Total Reps',              value: allReps.length.toString(),      sub: 'Assigned this week', cls: '' },
-    { icon: SVG_USER,   label: 'Total Managers',           value: allManagers.length.toString(),  sub: 'Across all regions', cls: 'purple' },
-    { icon: SVG_STORE,  label: 'Avg % Stores Captured',   value: latestM.pctStores + '%',        sub: 'Feedback captured', cls: 'blue' },
-    { icon: SVG_PCT,    label: 'Avg % Tasks Captured',    value: latestM.pctArticles + '%',      sub: `${latestM.captured.toLocaleString()} of ${latestM.total.toLocaleString()} tasks`, cls: 'green' },
-    { icon: SVG_TROPHY, label: 'Top Region',              value: topRegionEntry ? topRegionEntry.reg : '—',  sub: topRegionEntry ? `${topRegionEntry.pctStores}% Stores | ${topRegionEntry.pctArticles}% Tasks` : '', cls: 'orange' },
-    { icon: SVG_STAR,   label: 'Best Manager',            value: topMgEntry ? topMgEntry.m : '—', sub: topMgEntry ? `${topMgEntry.pctStores}% Stores | ${topMgEntry.pctArticles}% Tasks` : '', cls: 'amber' },
+    { icon: SVG_USERS,  label: 'Total Reps',              value: allReps.length.toString(),      sub: 'Assigned this week', cls: '', delta: lbDelta(allReps.length, prevRepCount, false, false) },
+    { icon: SVG_USER,   label: 'Total Managers',           value: allManagers.length.toString(),  sub: 'Across all regions', cls: 'purple', delta: lbDelta(allManagers.length, prevManagerCount, false, false) },
+    { icon: SVG_STORE,  label: 'Avg % Stores Captured',   value: latestM.pctStores + '%',        sub: 'Feedback captured', cls: 'blue', delta: lbDelta(latestM.pctStores, prevM.pctStores, true, true) },
+    { icon: SVG_PCT,    label: 'Avg % Tasks Captured',    value: latestM.pctArticles + '%',      sub: `${latestM.captured.toLocaleString()} of ${latestM.total.toLocaleString()} tasks`, cls: 'green', delta: lbDelta(latestM.pctArticles, prevM.pctArticles, true, true) },
+    { icon: SVG_TROPHY, label: 'Top Region',              value: topRegionEntry ? topRegionEntry.reg : '—',  sub: topRegionEntry ? `${topRegionEntry.pctStores}% Stores | ${topRegionEntry.pctArticles}% Tasks` : '', cls: 'orange', delta: '' },
+    { icon: SVG_STAR,   label: 'Best Manager',            value: topMgEntry ? topMgEntry.m : '—', sub: topMgEntry ? `${topMgEntry.pctStores}% Stores | ${topMgEntry.pctArticles}% Tasks` : '', cls: 'amber', delta: '' },
   ];
 
   const kpiEl = document.getElementById('lbKpiRow');
@@ -3047,6 +3070,7 @@ async function renderLeaderboardTab() {
         <div class="kpi-label">${c.label}</div>
         <div class="kpi-value" style="${kpiValueStyle(c.value)}">${c.value}</div>
         <div class="kpi-sub">${c.sub}</div>
+        ${c.delta || ''}
       </div>
     </div>`).join('');
 
