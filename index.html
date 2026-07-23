@@ -553,6 +553,8 @@
         <span>Store-level detail</span>
         <span class="tag" id="detailTag"></span>
         <span style="margin-left:auto;display:flex;gap:6px;">
+          <button id="statusActionedBtn" style="background:#f0f3f6;color:#1a7a45;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">Actioned</button>
+          <button id="statusPendingBtn" style="background:#f0f3f6;color:#9a6f00;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">Pending</button>
           <button id="exportCsvBtn" style="background:#f0f3f6;color:#52514e;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">&#8595; CSV</button>
           <button id="exportXlsxBtn" style="background:#f0f3f6;color:#1a7a45;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">&#8595; Excel</button>
         </span>
@@ -1281,12 +1283,19 @@ function initUI() {
   bannerFilterEl.addEventListener('change', e => { state.banner = e.target.value; state.page = 1; rerenderAll(); });
   regionFilterEl.addEventListener('change', e => { state.region = e.target.value; state.page = 1; rerenderAll(); });
   classFilterEl.addEventListener('change', e => { state.classification = e.target.value; state.page = 1; rerenderAll(); });
-  statusFilterEl.addEventListener('change', e => { state.status = e.target.value; state.page = 1; rerenderAll(); });
+  statusFilterEl.addEventListener('change', e => { state.status = e.target.value; state.page = 1; updateStatusButtons(); rerenderAll(); });
   document.getElementById('searchBox').addEventListener('input', e => { state.search = e.target.value; state.page = 1; rerenderAll(); });
   document.getElementById('prevPage').addEventListener('click', () => { if (state.page>1){ state.page--; renderTable(); } });
   document.getElementById('nextPage').addEventListener('click', () => { state.page++; renderTable(); });
   document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
   document.getElementById('exportXlsxBtn').addEventListener('click', exportXlsx);
+
+  // Quick toggles above Store-Level Detail - same state.status the STATUS
+  // dropdown drives, just one click instead of opening a select. Clicking
+  // an already-active toggle clears back to all statuses.
+  document.getElementById('statusActionedBtn').addEventListener('click', () => setStatusFilter('Completed'));
+  document.getElementById('statusPendingBtn').addEventListener('click', () => setStatusFilter('Pending'));
+  updateStatusButtons();
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1322,7 +1331,15 @@ function filteredRows(){
     if (state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (state.region !== '__all__' && r.region !== state.region) return false;
     if (state.classification !== '__all__' && r.classification !== state.classification) return false;
-    if (state.status !== '__all__' && r.actionStatus !== state.status) return false;
+    // 'Completed'/'Pending' use the same broader isActioned()/isPending()
+    // grouping the KPI cards use elsewhere (matches "Fixed" and "...Actioned"
+    // variants too, not just the literal string) - anything else falls back
+    // to an exact match against the real distinct status value it came from.
+    if (state.status !== '__all__') {
+      if (state.status === 'Completed') { if (!isActioned(r.actionStatus)) return false; }
+      else if (state.status === 'Pending') { if (!isPending(r.actionStatus)) return false; }
+      else if (r.actionStatus !== state.status) return false;
+    }
     if (state.search) {
       const s = state.search.toLowerCase();
       const hay = [r.store, r.article, r.barcode, r.rep, r.manager].join(' ').toLowerCase();
@@ -1330,6 +1347,24 @@ function filteredRows(){
     }
     return true;
   });
+}
+
+function setStatusFilter(value) {
+  state.status = (state.status === value) ? '__all__' : value;
+  state.page = 1;
+  if (statusFilterEl) statusFilterEl.value = (state.status === '__all__') ? '' : state.status;
+  updateStatusButtons();
+  rerenderAll();
+}
+
+function updateStatusButtons() {
+  const actionedBtn = document.getElementById('statusActionedBtn');
+  const pendingBtn = document.getElementById('statusPendingBtn');
+  const activeStyle = 'border:1px solid #123a63;background:#123a63;color:#fff;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;';
+  const idleActionedStyle = 'background:#f0f3f6;color:#1a7a45;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;';
+  const idlePendingStyle = 'background:#f0f3f6;color:#9a6f00;border:1px solid #d4dde6;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;';
+  if (actionedBtn) actionedBtn.style.cssText = state.status === 'Completed' ? activeStyle : idleActionedStyle;
+  if (pendingBtn) pendingBtn.style.cssText = state.status === 'Pending' ? activeStyle : idlePendingStyle;
 }
 
 const ICONS = {
@@ -2895,7 +2930,29 @@ async function renderLeaderboardTab() {
     if (exportRegionBtn) exportRegionBtn.addEventListener('click', () => lbExportHeatmapToExcel('region', 'Region Heatmap'));
   }
 
-  const last4 = weeksIndex.slice(-4);
+  // Anchor the "last 4 weeks" window to this client's own latest week with
+  // real leaderboard data, not the dataset's global latest week - otherwise
+  // a client missing from the newest week (confirmed happening for real,
+  // see Overview tab's applyClientWeekFallback) shows all-zero KPI cards and
+  // a region chart tagged with a week that has nothing for them, while the
+  // heatmap below (which spans the same 4 weeks either way) still shows
+  // their real earlier data, which reads as contradictory/broken.
+  function latestLeaderboardWeekForClient(client) {
+    if (!client || client === '__all__') return null;
+    let best = null;
+    (leaderboardRollup || []).forEach(r => {
+      if (r.client !== client) return;
+      if ((Number(r.tasksAssigned) || 0) > 0 || (Number(r.storesAssigned) || 0) > 0) {
+        if (!best || r.week > best) best = r.week;
+      }
+    });
+    return best;
+  }
+  const clientLatestWeek = latestLeaderboardWeekForClient(state.client);
+  const clientLatestIdx = clientLatestWeek ? weeksIndex.findIndex(w => w.week === clientLatestWeek) : -1;
+  const last4 = clientLatestIdx >= 0
+    ? weeksIndex.slice(Math.max(0, clientLatestIdx - 3), clientLatestIdx + 1)
+    : weeksIndex.slice(-4);
 
   function weekLabel(weekStr, idx) {
     const d = new Date(weekStr + 'T00:00:00');
