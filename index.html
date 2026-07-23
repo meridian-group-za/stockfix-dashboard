@@ -1120,7 +1120,7 @@ document.getElementById("clientLoginForm").addEventListener("submit", async (e) 
 
     setAuthLoading("Loading dashboard...", "Please wait while StockFix loads your data.");
     await loadAllData();
-    lockClientFilterToOwnClient(data.client);
+    await lockClientFilterToOwnClient(data.client);
   } catch (err) {
     console.error(err);
     errEl.textContent = "Invalid email or password.";
@@ -1133,7 +1133,35 @@ document.getElementById("clientLoginForm").addEventListener("submit", async (e) 
   }
 });
 
-function lockClientFilterToOwnClient(clientName) {
+// Not every client has data in the globally-latest week (a client's weekly
+// export can arrive late or short - confirmed happening for real: 2026-07-15
+// landed with only 5 of the usual ~24 clients present). Loading a client
+// straight into a week where they have zero rows renders an all-zero
+// Overview with no explanation, while other panels that already fall back
+// internally (Top 10 Actioned's early-return-on-empty leaves its old tag
+// text on screen) end up showing a different week than the one actually
+// selected - so resolve each client's own latest week with real data
+// up front instead, from `rollup` (already-loaded summary.json, all weeks).
+function latestWeekWithDataForClient(client) {
+  if (!client || client === '__all__') return LATEST_WEEK;
+  let best = null;
+  rollup.forEach(r => {
+    if (r.client === client && r.count > 0 && (!best || r.week > best)) best = r.week;
+  });
+  return best || LATEST_WEEK;
+}
+
+async function applyClientWeekFallback() {
+  const targetWeek = latestWeekWithDataForClient(state.client);
+  if (targetWeek === state.week) return;
+  state.week = targetWeek;
+  if (weekFilterEl) weekFilterEl.value = targetWeek;
+  document.getElementById("authStatus").textContent = `Loading week ${state.week}...`;
+  await loadWeek(state.week);
+  document.getElementById("authStatus").textContent = "Connected";
+}
+
+async function lockClientFilterToOwnClient(clientName) {
   // Match case/whitespace-insensitively against the dropdown's own deduped
   // option values (initUI() already normalizes those the same way) rather
   // than trusting the stored name to be byte-identical to whatever's in the
@@ -1151,6 +1179,7 @@ function lockClientFilterToOwnClient(clientName) {
     clientFilterEl.value = matched;
     clientFilterEl.disabled = true;
   }
+  await applyClientWeekFallback();
   rerenderAll();
 }
 
@@ -1237,7 +1266,11 @@ function initUI() {
   document.getElementById('subtitle').textContent =
     `Live SharePoint feed \u00b7 ${weeksIndex.length} weeks tracked`;
 
-  clientFilterEl.addEventListener('change', e => { state.client = e.target.value; state.page = 1; rerenderAll(); });
+  clientFilterEl.addEventListener('change', async e => {
+    state.client = e.target.value; state.page = 1;
+    await applyClientWeekFallback();
+    rerenderAll();
+  });
   weekFilterEl.addEventListener('change', async e => {
     state.week = e.target.value; state.page = 1;
     document.getElementById('authStatus').textContent = `Loading week ${state.week}...`;
@@ -1903,8 +1936,18 @@ function renderTop10Actioned(){
   const container = document.getElementById('top10ActionedBody');
   if (!container) return;
   const clsColors = {'Out of Stock':'#c93b3b','Overstock':'#d9a72e','Understock':'#2c8fae','No Sales (Idle Stock)':'#7c8aa0','Negative SOH':'#9b2fae'};
+  const t10tag = document.getElementById('top10ActionedTag');
+  if (t10tag) t10tag.textContent = `week ${state.week}`;
   if (sorted.length === 0) {
     container.closest('tbody') ? container.innerHTML = `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--text-400);">No rows match these filters.</td></tr>` : container.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-400);">No rows match these filters.</div>`;
+    // #top10InlineBars is the actually-visible element after the first
+    // successful render swaps it in below - clearing only the hidden legacy
+    // tbody above left stale bars from a previous render on screen forever
+    // once this branch started being hit (confirmed live: switching to a
+    // client/week with zero rows kept showing the last real client's bars
+    // and week tag, since neither this div nor the tag were ever reset).
+    const staleWrap = document.getElementById('top10InlineBars');
+    if (staleWrap) staleWrap.innerHTML = '';
     return;
   }
   const maxCompleted = sorted[0][1].completed || 1;
@@ -1933,9 +1976,6 @@ function renderTop10Actioned(){
   // Hide the original table if it exists
   const tbl = container.closest('table');
   if (tbl) tbl.style.display = 'none';
-
-  const t10tag = document.getElementById('top10ActionedTag');
-  if(t10tag) t10tag.textContent = `week ${state.week}`;
 }
 
 function renderTop10ByReasonCode(){
@@ -3138,7 +3178,7 @@ async function renderLeaderboardTab() {
     try {
       setAuthLoading("Loading dashboard...", "Please wait while StockFix reconnects to your session.");
       await loadAllData();
-      lockClientFilterToOwnClient(sessionStorage.getItem('clientAuthClient') || '');
+      await lockClientFilterToOwnClient(sessionStorage.getItem('clientAuthClient') || '');
     } catch (e) {
       console.warn('Silent client-session resume failed, user must log in again', e);
       clientLogout();
