@@ -1023,12 +1023,26 @@ let weeksIndex = [];
 let weekRowCache = {};    // week -> full row array, loaded on demand
 let LATEST_WEEK = null;
 
+// Region values arrive inconsistently cased/punctuated from the source data
+// (e.g. "EAST LONDON", "East London", "KWAZULU NATAL", "KWAZULU-NATAL" all
+// meaning the same region) - grouping/charting code was using the raw value
+// directly as a map key, so the same region silently split into multiple
+// rows. Normalized once here at every point rows enter the app (this
+// function, buildLeaderboardRollup, and loadWeek) rather than patched at
+// each individual chart/table, so nothing downstream needs to change.
+function normRegion(s) {
+  s = String(s ?? '').trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ');
+  if (!s) return 'Unknown';
+  if (s.length <= 4) return s.toUpperCase(); // short codes like "SWD" - title-casing would mangle these into e.g. "Swd"
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function buildRollups(summaryRows) {
   summaryDetailRows = (summaryRows || []).map(r => ({
     week: r.week,
     client: r.client || 'Unknown',
     banner: r.banner || 'Unknown',
-    region: r.region || 'Unknown',
+    region: normRegion(r.region),
     classification: r.classification || 'Unclassified',
     actionStatus: r.actionStatus || 'Unknown',
     count: Number(r.count || 0)
@@ -1058,7 +1072,7 @@ function buildLeaderboardRollup(rows) {
     week: r.week,
     client: r.client || 'Unknown',
     banner: r.banner || 'Unknown',
-    region: r.region || 'Unknown',
+    region: normRegion(r.region),
     manager: r.manager || 'Unassigned',
     rep: r.rep || 'Unassigned',
     tasksAssigned: Number(r.tasksAssigned || 0),
@@ -1132,6 +1146,7 @@ async function loadWeek(week) {
   const entry = weeksIndex.find(w => w.week === week);
   if (!entry) return [];
   const rows = await apiFetchJson(entry.file); // entry.file = "weeks/week_YYYY-MM-DD.jsonl" - server returns it already decompressed/parsed
+  rows.forEach(r => { if (r && typeof r === 'object') r.region = normRegion(r.region); });
   weekRowCache[week] = rows;
   return rows;
 }
