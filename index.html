@@ -1093,27 +1093,33 @@ async function _loadAllDataImpl() {
   buildRollups(summaryRows);
   weeksIndex = weeksIdx;
 
-  document.getElementById("authStatus").textContent = "Loading leaderboard rollup...";
-  setAuthLoading("Preparing your dashboard", "Loading leaderboard data...");
-  try {
-    const lbRows = await apiFetchJson("leaderboard_rollup.json");
-    buildLeaderboardRollup(lbRows);
-  } catch (e) {
-    console.warn('leaderboard_rollup.json not found or failed to load; Leaderboard will fall back to no rollup data.', e);
-    buildLeaderboardRollup([]);
-  }
-  try {
-    actionImpactRollup = await apiFetchJson("action_impact_rollup.json");
-  } catch (e) {
-    console.warn('action_impact_rollup.json not found or failed to load; Action Impact KPIs will fall back to zero.', e);
-    actionImpactRollup = [];
-  }
   LATEST_WEEK = weeksIndex[weeksIndex.length - 1].week;
   state.week = LATEST_WEEK;
 
-  document.getElementById("authStatus").textContent = `Loading latest week (${LATEST_WEEK})...`;
-  setAuthLoading("Preparing your dashboard", `Loading latest week (${LATEST_WEEK})...`);
-  await loadWeek(LATEST_WEEK);
+  // Leaderboard rollup, action-impact rollup, and the latest week's rows
+  // don't depend on each other (only on weeksIndex, already loaded above),
+  // so fetch them together instead of one after another - the wait becomes
+  // whichever one is slowest instead of the sum of all three. Leaderboard
+  // and action-impact keep their existing non-fatal fallback (empty data
+  // instead of blocking the page); the week load intentionally still
+  // rejects the whole Promise.all on failure, same as before, so the
+  // existing try/catch around loadAllData() (sign-in flows above) still
+  // catches a real data-load failure instead of it being silently swallowed.
+  document.getElementById("authStatus").textContent = `Loading leaderboard, action impact, and latest week (${LATEST_WEEK})...`;
+  setAuthLoading("Preparing your dashboard", `Loading leaderboard, action impact, and latest week (${LATEST_WEEK})...`);
+  const [lbRows, aiRows] = await Promise.all([
+    apiFetchJson("leaderboard_rollup.json").catch(e => {
+      console.warn('leaderboard_rollup.json not found or failed to load; Leaderboard will fall back to no rollup data.', e);
+      return [];
+    }),
+    apiFetchJson("action_impact_rollup.json").catch(e => {
+      console.warn('action_impact_rollup.json not found or failed to load; Action Impact KPIs will fall back to zero.', e);
+      return [];
+    }),
+    loadWeek(LATEST_WEEK),
+  ]);
+  buildLeaderboardRollup(lbRows);
+  actionImpactRollup = aiRows;
 
   document.getElementById("authStatus").textContent = "Connected";
   document.getElementById("authOverlay").style.display = "none";
