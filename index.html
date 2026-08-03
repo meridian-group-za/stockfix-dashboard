@@ -2172,7 +2172,13 @@ function renderWhatWasWrong(){
 // upstream export that builds this field is fixed at the source.
 function fixImageUrl(url){
   if (!url) return url;
-  return String(url).replace(/^https?:\/\/meridian-group-za\.github\.io/i, 'https://stockfixapp.online');
+  const value = String(url).trim();
+  const marker = 'objects/uploads/';
+  const markerIndex = value.toLowerCase().indexOf(marker);
+  if (markerIndex >= 0) {
+    return 'https://stockfixapp.online/' + value.slice(markerIndex);
+  }
+  return value.replace(/^https?:\/\/meridian-group-za\.github\.io/i, 'https://stockfixapp.online');
 }
 
 // ---------- Rep & Manager Performance ----------
