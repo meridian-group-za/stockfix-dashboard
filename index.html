@@ -1211,8 +1211,14 @@ document.getElementById("clientLoginForm").addEventListener("submit", async (e) 
     sessionStorage.setItem('clientAuthClient', data.client || '');
 
     setAuthLoading("Preparing your dashboard", "Please wait while StockFix loads your data.");
-    await loadAllData();
-    await lockClientFilterToOwnClient(data.client);
+    // Start the client session from a clean page load. A Meridian staff
+    // session may already be loading unrestricted data in this tab; reusing
+    // that in-flight promise here leaves the client selector blank when a
+    // renamed client (for example SIR JUICE to SIR FRUIT) is locked. On
+    // reload, the auto-resume path sees clientAuthToken before fetching data
+    // and every request is correctly scoped to this client from the outset.
+    window.location.reload();
+    return;
   } catch (err) {
     console.error(err);
     errEl.textContent = "Invalid email or password.";
