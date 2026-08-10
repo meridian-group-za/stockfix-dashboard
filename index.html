@@ -2197,23 +2197,7 @@ function isEscalated(status){ return (status||'').includes('Escalated'); }
 // ---------- CSV export ----------
 function cleanExportBarcode(value){
   if (value == null || value === '') return '';
-  const text = String(value).trim().replace(/\.0$/, '');
-  const scientific = text.match(/^\+?(\d+)(?:[.,](\d*))?[eE]\+?(\d+)$/);
-  if (!scientific) return text;
-
-  const integer = scientific[1];
-  const fraction = scientific[2] || '';
-  const exponent = Number(scientific[3]);
-  if (!Number.isInteger(exponent) || exponent > 100) return text;
-
-  const digits = (integer + fraction).replace(/^0+/, '') || '0';
-  const scale = exponent - fraction.length;
-  if (scale >= 0) return digits + '0'.repeat(scale);
-
-  const splitAt = digits.length + scale;
-  if (splitAt <= 0) return text;
-  const decimalTail = digits.slice(splitAt);
-  return /^0*$/.test(decimalTail) ? digits.slice(0, splitAt) : text;
+  return String(value).trim().replace(/\.0$/, '');
 }
 
 function excelCsvBarcode(value){
