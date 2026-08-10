@@ -2195,13 +2195,61 @@ function isPending(status){ return (status||'').includes('Pending'); }
 function isEscalated(status){ return (status||'').includes('Escalated'); }
 
 // ---------- CSV export ----------
+function cleanExportBarcode(value){
+  if (value == null || value === '') return '';
+  return String(value).trim().replace(/\.0$/, '');
+}
+
+function excelCsvBarcode(value){
+  const barcode = cleanExportBarcode(value);
+  if (!barcode) return '';
+  const quote = String.fromCharCode(34);
+  return '=' + quote + barcode.split(quote).join(quote + quote) + quote;
+}
+
+function forceTextColumn(ws, headerName){
+  if (!ws || !ws['!ref'] || typeof XLSX === 'undefined') return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  let targetCol = -1;
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const header = ws[XLSX.utils.encode_cell({r: range.s.r, c: col})];
+    if (header && String(header.v || '').toLowerCase() === headerName.toLowerCase()) {
+      targetCol = col;
+      break;
+    }
+  }
+  if (targetCol < 0) return;
+  for (let row = range.s.r + 1; row <= range.e.r; row++) {
+    const address = XLSX.utils.encode_cell({r: row, c: targetCol});
+    const cell = ws[address];
+    if (!cell) continue;
+    cell.v = cleanExportBarcode(cell.v);
+    cell.t = 's';
+    cell.z = '@';
+    delete cell.w;
+  }
+}
+
+function buildExcelSafeCsv(rows, fields){
+  const quote = String.fromCharCode(34);
+  const encode = (value) => {
+    const text = String(value ?? '');
+    return quote + text.split(quote).join(quote + quote) + quote;
+  };
+  return [fields.join(',')].concat(rows.map(r => fields.map(f =>
+    encode((f === 'barcode' || f === 'sku') ? excelCsvBarcode(r[f]) : r[f])
+  ).join(','))).join('\n');
+}
+
 function exportCsv(){
   const rows = filteredRows();
   if (rows.length === 0) { alert('No rows to export.'); return; }
   const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
   const esc = v => { if (v==null||v==='') return ''; const s=String(v).replace(/"/g,'""'); return /[,"\n]/.test(s)?`"${s}"`:s; };
-  const lines = [headers.join(','), ...rows.map(r => fields.map(f => esc(f === 'image' ? fixImageUrl(r[f]) : r[f])).join(','))];
+  const lines = [headers.join(','), ...rows.map(r => fields.map(f => esc(
+    f === 'image' ? fixImageUrl(r[f]) : f === 'barcode' ? excelCsvBarcode(r[f]) : r[f]
+  )).join(','))];
   const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `stockfix_${state.week}.csv`; document.body.appendChild(a); a.click();
@@ -2214,8 +2262,11 @@ function exportXlsx(){
   if (typeof XLSX === 'undefined') { alert('Excel export library not loaded yet, please try again.'); return; }
   const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
-  const data = [headers, ...rows.map(r => fields.map(f => (f === 'image' ? fixImageUrl(r[f]) : r[f]) ?? ''))];
+  const data = [headers, ...rows.map(r => fields.map(f => (
+    f === 'image' ? fixImageUrl(r[f]) : f === 'barcode' ? cleanExportBarcode(r[f]) : r[f]
+  ) ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(data);
+  forceTextColumn(ws, 'Barcode');
   // Column widths
   ws['!cols'] = [10,10,8,10,16,16,20,12,28,18,22,10,22,6,22,30].map(w => ({wch:w}));
   const wb = XLSX.utils.book_new();
@@ -2727,7 +2778,7 @@ function aiExportArticleModal(){
   const group = aiActiveArticle;
   const rows = aiCache.details.filter(d => (d.base.barcode || d.base.article) === group.barcode && d.latest).map(d => ({
     article: group.article,
-    barcode: group.barcode,
+    barcode: cleanExportBarcode(group.barcode),
     store: d.base.store || '',
     startingIssue: d.issue,
     sohBaseline: d.baseSoh,
@@ -2743,11 +2794,12 @@ function aiExportArticleModal(){
   if (typeof XLSX === 'undefined') {
     const fields = Object.keys(rows[0]);
     const csv = [fields.join(',')].concat(rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g,'""') + '"').join(','))).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
+    const blob = new Blob([buildExcelSafeCsv(rows, fields)], {type:'text/csv'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `stockfix_article_${safeName}.csv`; document.body.appendChild(a); a.click(); a.remove();
     return;
   }
   const ws = XLSX.utils.json_to_sheet(rows);
+  forceTextColumn(ws, 'barcode');
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Article detail');
   XLSX.writeFile(wb, `stockfix_article_${safeName}.xlsx`);
@@ -2761,7 +2813,7 @@ function aiExportRows(){
     banner: d.base.banner || '',
     region: d.base.region || '',
     store: d.base.store || '',
-    barcode: d.base.barcode || '',
+    barcode: cleanExportBarcode(d.base.barcode),
     article: d.base.article || '',
     feedback: d.base.feedback || '',
     startingIssue: d.issue,
@@ -2783,7 +2835,7 @@ function aiExportCsv(){
   if (!rows.length) { alert('No Action Impact rows to export.'); return; }
   const fields = Object.keys(rows[0]);
   const csv = [fields.join(',')].concat(rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g,'""') + '"').join(','))).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
+  const blob = new Blob([buildExcelSafeCsv(rows, fields)], {type:'text/csv'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `stockfix_action_impact_${aiCache.impactWeek}.csv`; document.body.appendChild(a); a.click(); a.remove();
 }
 function aiExportXlsx(){
@@ -2791,6 +2843,7 @@ function aiExportXlsx(){
   if (!rows.length) { alert('No Action Impact rows to export.'); return; }
   if (typeof XLSX === 'undefined') { aiExportCsv(); return; }
   const ws = XLSX.utils.json_to_sheet(rows);
+  forceTextColumn(ws, 'barcode');
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Action Impact');
   XLSX.writeFile(wb, `stockfix_action_impact_${aiCache.impactWeek}.xlsx`);
@@ -2936,7 +2989,7 @@ function scExportModal(){
     const p4w = aiP4w(r);
     const wfc = aiWfc(soh, p4w);
     return {
-      sku: g.barcode,
+      sku: cleanExportBarcode(g.barcode),
       article: g.article,
       action: g.action,
       classification: g.classification,
@@ -2955,11 +3008,12 @@ function scExportModal(){
   if (typeof XLSX === 'undefined') {
     const fields = Object.keys(rows[0]);
     const csv = [fields.join(',')].concat(rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g,'""') + '"').join(','))).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
+    const blob = new Blob([buildExcelSafeCsv(rows, fields)], {type:'text/csv'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `stockfix_supply_signal_${safeName}.csv`; document.body.appendChild(a); a.click(); a.remove();
     return;
   }
   const ws = XLSX.utils.json_to_sheet(rows);
+  forceTextColumn(ws, 'sku');
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Supply Chain Signal');
   XLSX.writeFile(wb, `stockfix_supply_signal_${safeName}.xlsx`);
