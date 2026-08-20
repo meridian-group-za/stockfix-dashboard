@@ -2984,7 +2984,7 @@ async function renderLeaderboardTab() {
     lbRegionMap[reg].storesAssigned += Number(r.storesAssigned || 0);
     lbRegionMap[reg].storesCaptured += Number(r.storesCaptured || 0);
   });
-  const lbRegions = Object.keys(lbRegionMap).sort();
+  const lbRegions = Object.keys(lbRegionMap).filter(r => r !== 'Eastern Cape' && r !== 'Unknown').sort();
   const lbPctStores  = lbRegions.map(r => lbRegionMap[r].storesAssigned ? Math.round((lbRegionMap[r].storesCaptured / lbRegionMap[r].storesAssigned) * 1000) / 10 : 0);
   const lbPctArticles = lbRegions.map(r => lbRegionMap[r].tasksAssigned ? Math.round((lbRegionMap[r].tasksCaptured / lbRegionMap[r].tasksAssigned) * 1000) / 10 : 0);
 
@@ -3004,8 +3004,8 @@ async function renderLeaderboardTab() {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + '%' } } },
         scales: {
-          x: { ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 } },
-          y: { ticks: { font: { size: 9 }, callback: v => v + '%' }, max: Math.max(...lbPctStores, ...lbPctArticles, 10) + 10 }
+          x: { ticks: { font: { size: 9 }, color: '#FFFFFF', maxRotation: 45, minRotation: 45 } },
+          y: { ticks: { font: { size: 9 }, color: '#FFFFFF', callback: v => v + '%' }, max: Math.max(...lbPctStores, ...lbPctArticles, 10) + 10 }
         }
       },
       plugins: [{
@@ -3030,13 +3030,14 @@ async function renderLeaderboardTab() {
   }
 
   // ---- Regional Summary Heatmap ----
-  const allRegions = [...new Set(weekCols.flatMap(w => w.rows.map(r => r.region)))].filter(Boolean).sort();
+  const allRegions = [...new Set(weekCols.flatMap(w => w.rows.map(r => normRegionLabel(r.region))))]
+    .filter(reg => reg !== 'Eastern Cape' && reg !== 'Unknown').sort();
   const regHeadEl = document.getElementById('lbRegionHeatmapHead');
   const regBodyEl = document.getElementById('lbRegionHeatmapBody');
   if (regHeadEl) regHeadEl.innerHTML = buildHeatmapHead(['Region']);
   const regExportRows = [];
   if (regBodyEl) regBodyEl.innerHTML = allRegions.map(reg => {
-    const weekMetrics = weekCols.map(w => calcMetrics(w.rows.filter(r => r.region === reg)));
+    const weekMetrics = weekCols.map(w => calcMetrics(w.rows.filter(r => normRegionLabel(r.region) === reg)));
     regExportRows.push({ extra: { Region: reg }, weekMetrics });
     const cells = weekMetrics.map(m => hmCell(m.pctStores) + hmCell(m.pctArticles)).join('');
     return `<tr><td style="font-size:10px;font-weight:800;padding:5px 8px;color:#D6E4F2;white-space:nowrap;">${reg}</td>${cells}</tr>`;
