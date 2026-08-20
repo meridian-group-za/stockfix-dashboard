@@ -454,7 +454,7 @@
   <div class="filter-group"><label for="statusFilter">Status</label><select id="statusFilter"><option value="__all__">All action statuses</option></select></div>
   <div class="filter-group"><label for="weekFilter">Week</label><select id="weekFilter"></select></div>
   <div class="filter-group" style="flex:1;min-width:200px;">
-    <input type="text" id="searchBox" style="width:100%;" placeholder="Search store, article, barcode, rep..." aria-label="Search store, article, barcode, rep">
+    <input type="text" id="searchBox" style="width:100%;" placeholder="Search store, article, barcode, user..." aria-label="Search store, article, barcode, user">
   </div>
 </div>
 
@@ -556,14 +556,14 @@
           <div id="lbTop5ManagersBars"></div>
         </div>
 
-        <!-- Top 5 Reps + Watchlist side by side -->
+        <!-- Top 5 Users + Watchlist side by side -->
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <div class="panel" style="flex:1;min-width:0;">
-            <h2>Top 5 Reps <span class="tag" id="lbTop5RepsTag">by % Tasks Captured</span></h2>
+            <h2>Top 5 Users <span class="tag" id="lbTop5RepsTag">by % Tasks Captured</span></h2>
             <div id="lbTop5RepsList"></div>
           </div>
           <div class="panel" style="flex:1;min-width:0;">
-            <h2>Watchlist Reps <span class="tag">Low Capture</span></h2>
+            <h2>Watchlist Users <span class="tag">Low Capture</span></h2>
             <div id="lbWatchlistList"></div>
           </div>
         </div>
@@ -586,7 +586,7 @@
 
         <!-- Rep heatmap -->
         <div class="panel">
-          <h2>Rep Weekly Performance Heatmap <span class="tag" id="lbRepHeatmapTag"></span>
+          <h2>User Weekly Performance Heatmap <span class="tag" id="lbRepHeatmapTag"></span>
             <span style="float:right;display:flex;align-items:center;gap:8px;">
               <span style="font-size:9px;color:#7FA3C9;font-weight:600;">% Stores Captured &nbsp;|&nbsp; % Tasks Captured</span>
               <button id="lbExportRepBtn" class="ai-btn" style="padding:3px 8px;font-size:9px;">↓ Excel</button>
@@ -653,7 +653,7 @@
           <thead>
             <tr>
               <th>Week Ending</th><th>Action Date</th><th>Client</th>
-              <th>Region</th><th>Rep Name</th><th>Line Manager</th>
+              <th>Region</th><th>User Name</th><th>Line Manager</th>
               <th>Store Name</th><th>Barcode</th><th>Article Description</th>
               <th>Classification</th><th>Action</th><th>Status</th>
               <th>Reason Code</th><th>SOH</th><th>Comment</th><th>Img</th>
@@ -789,7 +789,7 @@
     <div class="sc-modal-body">
       <div class="ai-table-scroll">
         <table class="ai-table" id="scModalTable">
-          <thead><tr><th>Store</th><th>Region</th><th>SOH</th><th>P4W Sales</th><th>WFC</th><th>Action</th><th>Action Status</th><th>Reason Code (rep logged)</th><th>Date Logged</th></tr></thead>
+          <thead><tr><th>Store</th><th>Region</th><th>SOH</th><th>P4W Sales</th><th>WFC</th><th>Action</th><th>Action Status</th><th>Reason Code (user logged)</th><th>Date Logged</th></tr></thead>
           <tbody id="scModalTableBody"></tbody>
         </table>
       </div>
@@ -865,7 +865,7 @@
         <div style="padding:0 22px;border-right:1px solid rgba(157,196,236,0.18);">
           <div style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(236,109,37,0.55);display:grid;place-items:center;margin-bottom:14px;"><svg viewBox="0 0 24 24" style="width:19px;height:19px;stroke:#EC6D25;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3.3 3.1-6 7-6s7 2.7 7 6M17 11a3 3 0 1 0-1.5-5.6M22 20c0-2.6-1.9-4.8-4.5-5.5"/></svg></div>
           <div style="font-size:14px;font-weight:700;color:#EAF1FA;margin-bottom:6px;">Field accountability</div>
-          <div style="font-size:12.5px;line-height:1.5;color:#9DC4EC;">Reps, managers and capture rates by week.</div>
+          <div style="font-size:12.5px;line-height:1.5;color:#9DC4EC;">Users, managers and capture rates by week.</div>
         </div>
 
         <div style="padding:0 22px;">
@@ -2022,7 +2022,7 @@ function isEscalated(status){ return (status||'').includes('Escalated'); }
 function exportCsv(){
   const rows = filteredRows();
   if (rows.length === 0) { alert('No rows to export.'); return; }
-  const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
+  const headers = ['Week Ending','Action Date','Client','Region','User Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
   const esc = v => { if (v==null||v==='') return ''; const s=String(v).replace(/"/g,'""'); return /[,"\n]/.test(s)?`"${s}"`:s; };
   const lines = [headers.join(','), ...rows.map(r => fields.map(f => esc(r[f])).join(','))];
@@ -2036,7 +2036,7 @@ function exportXlsx(){
   const rows = filteredRows();
   if (rows.length === 0) { alert('No rows to export.'); return; }
   if (typeof XLSX === 'undefined') { alert('Excel export library not loaded yet, please try again.'); return; }
-  const headers = ['Week Ending','Action Date','Client','Region','Rep Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
+  const headers = ['Week Ending','Action Date','Client','Region','User Name','Line Manager','Store Name','Barcode','Article Description','Classification','Action','Action Status','Reason Code','Store SOH','Comment','Image URL'];
   const fields  = ['week','actionDate','client','region','rep','manager','store','barcode','article','classification','action','actionStatus','reasonCode','storeSoh','actionComment','image'];
   const data = [headers, ...rows.map(r => fields.map(f => r[f] ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -2806,7 +2806,7 @@ async function renderLeaderboardTab() {
     const exportManagerBtn = document.getElementById('lbExportManagerBtn');
     if (exportManagerBtn) exportManagerBtn.addEventListener('click', () => lbExportHeatmapToExcel('manager', 'Manager Heatmap'));
     const exportRepBtn = document.getElementById('lbExportRepBtn');
-    if (exportRepBtn) exportRepBtn.addEventListener('click', () => lbExportHeatmapToExcel('rep', 'Rep Heatmap'));
+    if (exportRepBtn) exportRepBtn.addEventListener('click', () => lbExportHeatmapToExcel('rep', 'User Heatmap'));
     const exportRegionBtn = document.getElementById('lbExportRegionBtn');
     if (exportRegionBtn) exportRegionBtn.addEventListener('click', () => lbExportHeatmapToExcel('region', 'Region Heatmap'));
   }
@@ -2951,12 +2951,12 @@ async function renderLeaderboardTab() {
   const allRepsFiltered = [...new Set(weekCols.flatMap(w => w.rows.map(r => r.rep)))].filter(Boolean).sort();
   const rpHeadEl = document.getElementById('lbRepHeatmapHead');
   const rpBodyEl = document.getElementById('lbRepHeatmapBody');
-  if (rpHeadEl) rpHeadEl.innerHTML = buildHeatmapHead(['Rep Name', 'Line Manager', 'Region']);
+  if (rpHeadEl) rpHeadEl.innerHTML = buildHeatmapHead(['User Name', 'Line Manager', 'Region']);
   const rpExportRows = [];
   if (rpBodyEl) rpBodyEl.innerHTML = allRepsFiltered.map(rep => {
     const sample = latestRows.find(r => r.rep === rep) || (leaderboardRollup || []).find(r => r.rep === rep) || {};
     const weekMetrics = weekCols.map(w => calcMetrics(w.rows.filter(r => r.rep === rep)));
-    rpExportRows.push({ extra: { 'Rep Name': rep, 'Line Manager': sample.manager || '', Region: sample.region || '' }, weekMetrics });
+    rpExportRows.push({ extra: { 'User Name': rep, 'Line Manager': sample.manager || '', Region: sample.region || '' }, weekMetrics });
     const cells = weekMetrics.map(m => hmCell(m.pctStores) + hmCell(m.pctArticles)).join('');
     return `<tr>
       <td style="font-size:10px;font-weight:800;padding:5px 8px;color:#D6E4F2;white-space:nowrap;">${rep}</td>
@@ -2965,14 +2965,19 @@ async function renderLeaderboardTab() {
       ${cells}
     </tr>`;
   }).join('') || `<tr><td colspan="${3+weekCols.length*2}" style="padding:12px;text-align:center;color:#7FA3C9;font-size:10px;">No data</td></tr>`;
-  lbHeatmapExportCache.rep = { extraCols: ['Rep Name', 'Line Manager', 'Region'], weekCols, rows: rpExportRows };
+  lbHeatmapExportCache.rep = { extraCols: ['User Name', 'Line Manager', 'Region'], weekCols, rows: rpExportRows };
   const rpTag = document.getElementById('lbRepHeatmapTag');
-  if (rpTag) rpTag.textContent = `${allRepsFiltered.length} reps · last 4 weeks`;
+  if (rpTag) rpTag.textContent = `${allRepsFiltered.length} users · last 4 weeks`;
 
   // ---- Region bar chart ----
   const lbRegionMap = {};
+  const normRegionLabel = v => {
+    const t = String(v || '').trim();
+    if (!t) return 'Unknown';
+    return t.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  };
   latestRows.forEach(r => {
-    const reg = r.region || 'Unknown';
+    const reg = normRegionLabel(r.region);
     if (!lbRegionMap[reg]) lbRegionMap[reg] = { tasksAssigned: 0, tasksCaptured: 0, storesAssigned: 0, storesCaptured: 0 };
     lbRegionMap[reg].tasksAssigned += Number(r.tasksAssigned || 0);
     lbRegionMap[reg].tasksCaptured += Number(r.tasksCaptured || 0);
