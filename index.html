@@ -1607,7 +1607,13 @@ function renderActionedPendingBars(){
 }
 
 function renderClassificationSummaryTable(){
-  const rows = filteredRows();
+  // Use rowsIgnoring('status') so Rate % is always actioned-of-all-lines for
+  // that classification, not actioned-of-whatever-the-Status-dropdown-is-set-
+  // to -- with the default Status=Completed filter, filteredRows() here was
+  // pre-scoping every subset to already-completed rows, making Actioned ==
+  // Total Tasks and Rate % a meaningless 100% for every row (Carin,
+  // 2026-08-28). Same fix already applied to the KPI row and Task breakdown.
+  const rows = rowsIgnoring('status');
   const classes = Object.keys(CLASS_HEX);
   const body = document.getElementById('classSummaryBody');
   const totals = {total:0, actioned:0, pending:0};
