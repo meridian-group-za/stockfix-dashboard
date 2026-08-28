@@ -26,6 +26,7 @@
     --c-idle:#8FA6C2;
     --c-dead:#B9556B;
     --c-negative:#C06BD6;
+    --c-notlisted:#7A6BD6;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Poppins','Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -87,6 +88,7 @@
   .spark-card.c-optimal{border-left-color:var(--c-optimal);}
   .spark-card.c-overstock{border-left-color:var(--c-overstock);}
   .spark-card.c-understock{border-left-color:var(--c-understock);}
+  .spark-card.c-notlisted{border-left-color:var(--c-notlisted);}
   .spark-card.c-oos{border-left-color:var(--c-oos);}
   .spark-card.c-idle{border-left-color:var(--navy);}
   .spark-card.c-negative{border-left-color:var(--c-negative);}
@@ -451,6 +453,7 @@
   <div class="filter-group"><label for="bannerFilter">Banner</label><select id="bannerFilter"><option value="__all__">All banners</option></select></div>
   <div class="filter-group"><label for="regionFilter">Region</label><select id="regionFilter"><option value="__all__">All regions</option></select></div>
   <div class="filter-group"><label for="classFilter">Classification</label><select id="classFilter"><option value="__all__">All classifications</option></select></div>
+  <div class="filter-group"><label for="resourceTypeFilter">Resource type</label><select id="resourceTypeFilter"><option value="__all__">All resource types</option></select></div>
   <div class="filter-group"><label for="statusFilter">Status</label><select id="statusFilter"><option value="__all__">All action statuses</option></select></div>
   <div class="filter-group"><label for="weekFilter">Week</label><select id="weekFilter"></select></div>
   <div class="filter-group" style="flex:1;min-width:200px;">
@@ -610,6 +613,13 @@
           <h2>Tasks &amp; Stores Captured by Region <span class="tag" id="lbRegionChartTag">selected week</span></h2>
           <div id="lbRegionChartWrap" style="height:405px;position:relative;"><canvas id="lbRegionActionsChart"></canvas></div>
           <div id="lbRegionActionsLegend" style="display:flex;gap:12px;margin-top:6px;font-size:9.5px;color:var(--muted);"></div>
+        </div>
+
+        <!-- Resource type bar chart (Carin, 2026-08-28) -->
+        <div class="panel" style="margin-bottom:8px;">
+          <h2>% Tasks Captured by Resource Type <span class="tag" id="lbResourceTypeChartTag">selected week</span></h2>
+          <div id="lbResourceTypeChartWrap" style="height:340px;position:relative;"><canvas id="lbResourceTypeChart"></canvas></div>
+          <div id="lbResourceTypeLegend" style="display:flex;gap:12px;margin-top:6px;font-size:9.5px;color:var(--muted);"></div>
         </div>
 
         <!-- Regional summary heatmap -->
@@ -1054,7 +1064,11 @@ async function fetchGzJsonlFile(token, relativePath) {
   const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${relativePath}:/content`;
   const buf = await graphFetch(url, token, true);
   const text = pako.inflate(new Uint8Array(buf), { to: "string" });
-  return text.split("\n").filter(Boolean).map(line => JSON.parse(line));
+  return text.split("\n").filter(Boolean).map(line => {
+    const r = JSON.parse(line);
+    r.classification = canonicalizeClassification(r.classification);
+    return r;
+  });
 }
 
 // =========================================================================
@@ -1074,7 +1088,8 @@ function buildRollups(summaryRows) {
     client: r.client || 'Unknown',
     banner: r.banner || 'Unknown',
     region: r.region || 'Unknown',
-    classification: r.classification || 'Unclassified',
+    classification: canonicalizeClassification(r.classification) || 'Unclassified',
+    resourceType: r.resourceType || 'Unknown',
     actionStatus: r.actionStatus || 'Unknown',
     count: Number(r.count || 0)
   }));
@@ -1189,7 +1204,26 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
 const CLASS_HEX = {
   'Optimal': '#3FBF87','Overstock': '#E5B23C','Understock': '#4FB3D9',
   'Out of Stock': '#E8595B','No Sales (Idle Stock)': '#8FA6C2','Negative SOH': '#C06BD6',
+  'Not Listed': '#7A6BD6',
 };
+// The pipeline's raw classification field uses different wording than the
+// dashboard's display labels (confirmed 2026-08-28: raw data has "Possible
+// Overstock", "Critical Low Stock"/"Low Stock", "No Sales / Idle Stock",
+// "Not Listed" -- none of which matched CLASS_HEX's keys). Every count,
+// filter and chart in this file keys off r.classification against
+// CLASS_HEX, so normalizing once here at ingestion (not in each consumer)
+// is what keeps Task breakdown, Classification summary, Reason code and the
+// Classification filter dropdown all showing the same real numbers instead
+// of silently dropping ~54% of all lines into 0.
+const RAW_CLASSIFICATION_MAP = {
+  'Possible Overstock': 'Overstock',
+  'Critical Low Stock': 'Understock',
+  'Low Stock': 'Understock',
+  'No Sales / Idle Stock': 'No Sales (Idle Stock)',
+};
+function canonicalizeClassification(raw) {
+  return RAW_CLASSIFICATION_MAP[raw] || raw;
+}
 const STATUS_HEX = {
   'Actioned': '#3FBF87', 'Completed': '#3FBF87', 'Fixed': '#3FBF87',
   'Pending': '#E5B23C', 'Not Actioned': '#E8595B', 'Not Fixed': '#E8595B',
@@ -1205,10 +1239,10 @@ function statusColor(s){
 
 let state = {
   client: '__all__', week: null, banner: '__all__', region: '__all__', classification: '__all__',
-  status: 'Completed', search: '', page: 1, pageSize: 50,
+  resourceType: '__all__', status: 'Completed', search: '', page: 1, pageSize: 50,
 };
 
-let clientFilterEl, weekFilterEl, bannerFilterEl, regionFilterEl, classFilterEl, statusFilterEl;
+let clientFilterEl, weekFilterEl, bannerFilterEl, regionFilterEl, classFilterEl, resourceTypeFilterEl, statusFilterEl;
 
 function initUI() {
   clientFilterEl = document.getElementById('clientFilter');
@@ -1216,6 +1250,7 @@ function initUI() {
   bannerFilterEl = document.getElementById('bannerFilter');
   regionFilterEl = document.getElementById('regionFilter');
   classFilterEl = document.getElementById('classFilter');
+  resourceTypeFilterEl = document.getElementById('resourceTypeFilter');
   statusFilterEl = document.getElementById('statusFilter');
 
   const clients = [...new Set(rollup.map(r => r.client))].sort();
@@ -1247,6 +1282,11 @@ function initUI() {
     const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
     classFilterEl.appendChild(opt);
   });
+  const resourceTypes = [...new Set(currentRows.map(r => r.resourceType))].filter(Boolean).sort();
+  resourceTypes.forEach(rt => {
+    const opt = document.createElement('option'); opt.value = rt; opt.textContent = rt;
+    resourceTypeFilterEl.appendChild(opt);
+  });
   const statuses = [...new Set(currentRows.map(r => r.actionStatus))].filter(Boolean).sort();
   statuses.forEach(s => {
     const opt = document.createElement('option'); opt.value = s; opt.textContent = s;
@@ -1270,6 +1310,7 @@ function initUI() {
   bannerFilterEl.addEventListener('change', e => { state.banner = e.target.value; state.page = 1; rerenderAll(); });
   regionFilterEl.addEventListener('change', e => { state.region = e.target.value; state.page = 1; rerenderAll(); });
   classFilterEl.addEventListener('change', e => { state.classification = e.target.value; state.page = 1; rerenderAll(); });
+  resourceTypeFilterEl.addEventListener('change', e => { state.resourceType = e.target.value; state.page = 1; rerenderAll(); });
   statusFilterEl.addEventListener('change', e => { state.status = e.target.value; state.page = 1; rerenderAll(); });
   document.getElementById('searchBox').addEventListener('input', e => { state.search = e.target.value; state.page = 1; rerenderAll(); });
   document.getElementById('prevPage').addEventListener('click', () => { if (state.page>1){ state.page--; renderTable(); } });
@@ -1311,6 +1352,7 @@ function filteredRows(){
     if (state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (state.region !== '__all__' && r.region !== state.region) return false;
     if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return false;
     if (state.status !== '__all__' && r.actionStatus !== state.status) return false;
     if (state.search) {
       const s = state.search.toLowerCase();
@@ -1348,6 +1390,7 @@ function getPrevWeekFilteredRows(){
     if (state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (state.region !== '__all__' && r.region !== state.region) return false;
     if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return false;
     return true;
   });
 }
@@ -1360,6 +1403,7 @@ function getSummaryTotalsForWeek(week){
     if (state.banner !== '__all__' && r.banner !== state.banner) return;
     if (state.region !== '__all__' && r.region !== state.region) return;
     if (state.classification !== '__all__' && r.classification !== state.classification) return;
+    if (state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return;
     totals.total += r.count;
     if (isActioned(r.actionStatus)) totals.actioned += r.count;
     if (isPending(r.actionStatus)) totals.pending += r.count;
@@ -1752,6 +1796,7 @@ function renderTaskBreakdown(){
     if (state.client !== '__all__' && r.client !== state.client) return false;
     if (state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (state.region !== '__all__' && r.region !== state.region) return false;
+    if (state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return false;
     return true;
   });
   const totalForPct = currentRows.length;
@@ -1778,6 +1823,7 @@ function renderTaskBreakdown(){
   const clsCssClass = {
     'Optimal':'c-optimal','Overstock':'c-overstock','Understock':'c-understock',
     'Out of Stock':'c-oos','No Sales (Idle Stock)':'c-idle','No Sales (Dead Stock)':'c-idle','Negative SOH':'c-negative',
+    'Not Listed':'c-notlisted',
   };
   grid.innerHTML = classes.map(cls => `
     <div class="spark-card ${clsCssClass[cls]||''}">
@@ -1906,6 +1952,7 @@ function rowsIgnoring(filterKey){
     if (filterKey !== 'banner' && state.banner !== '__all__' && r.banner !== state.banner) return false;
     if (filterKey !== 'region' && state.region !== '__all__' && r.region !== state.region) return false;
     if (filterKey !== 'classification' && state.classification !== '__all__' && r.classification !== state.classification) return false;
+    if (filterKey !== 'resourceType' && state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return false;
     if (filterKey !== 'status' && state.status !== '__all__' && r.actionStatus !== state.status) return false;
     return true;
   });
@@ -2136,6 +2183,7 @@ function aiPassGlobalFilters(r){
   if (state.banner !== '__all__' && r.banner !== state.banner) return false;
   if (state.region !== '__all__' && r.region !== state.region) return false;
   if (state.classification !== '__all__' && r.classification !== state.classification) return false;
+  if (state.resourceType !== '__all__' && r.resourceType !== state.resourceType) return false;
   if (state.search) {
     const s = state.search.toLowerCase();
     const hay = [r.store, r.article, r.barcode, r.rep, r.manager].join(' ').toLowerCase();
@@ -3027,6 +3075,66 @@ async function renderLeaderboardTab() {
       <span><span style="display:inline-block;width:10px;height:10px;background:#EC6D25;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>% Tasks Captured</span>`;
     const chartTag = document.getElementById('lbRegionChartTag');
     if (chartTag) chartTag.textContent = `week ${last4[last4.length-1].week}`;
+  }
+
+  // ---- Tasks Captured by Resource Type (Carin, 2026-08-28) ----
+  // Same shape as the region chart above, grouped by resourceType instead --
+  // leaderboard_rollup.json already carries this field per row, it just
+  // wasn't surfaced anywhere in the Leaderboard yet.
+  const lbResourceTypeMap = {};
+  latestRows.forEach(r => {
+    const rt = r.resourceType || 'Unknown';
+    if (!lbResourceTypeMap[rt]) lbResourceTypeMap[rt] = { tasksAssigned: 0, tasksCaptured: 0, storesAssigned: 0, storesCaptured: 0 };
+    lbResourceTypeMap[rt].tasksAssigned += Number(r.tasksAssigned || 0);
+    lbResourceTypeMap[rt].tasksCaptured += Number(r.tasksCaptured || 0);
+    lbResourceTypeMap[rt].storesAssigned += Number(r.storesAssigned || 0);
+    lbResourceTypeMap[rt].storesCaptured += Number(r.storesCaptured || 0);
+  });
+  const lbResourceTypes = Object.keys(lbResourceTypeMap).filter(rt => rt !== 'Unknown')
+    .sort((a, b) => lbResourceTypeMap[b].tasksAssigned - lbResourceTypeMap[a].tasksAssigned);
+  const lbRtPctStores   = lbResourceTypes.map(rt => lbResourceTypeMap[rt].storesAssigned ? Math.round((lbResourceTypeMap[rt].storesCaptured / lbResourceTypeMap[rt].storesAssigned) * 1000) / 10 : 0);
+  const lbRtPctArticles = lbResourceTypes.map(rt => lbResourceTypeMap[rt].tasksAssigned ? Math.round((lbResourceTypeMap[rt].tasksCaptured / lbResourceTypeMap[rt].tasksAssigned) * 1000) / 10 : 0);
+
+  const lbRtCtx = document.getElementById('lbResourceTypeChart');
+  if (lbRtCtx) {
+    if (window._lbResourceTypeChart) window._lbResourceTypeChart.destroy();
+    window._lbResourceTypeChart = new Chart(lbRtCtx, {
+      type: 'bar',
+      data: {
+        labels: lbResourceTypes,
+        datasets: [
+          { label: '% Stores Captured', data: lbRtPctStores, backgroundColor: '#EC6D25', borderRadius: 3 },
+          { label: '% Tasks Captured',  data: lbRtPctArticles, backgroundColor: '#4A7AB0', borderRadius: 3 },
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + '%' } } },
+        scales: {
+          x: { ticks: { font: { size: 9 }, color: '#FFFFFF', callback: v => v + '%' }, max: Math.max(...lbRtPctStores, ...lbRtPctArticles, 10) + 10 },
+          y: { ticks: { font: { size: 9 }, color: '#FFFFFF' } }
+        }
+      },
+      plugins: [{
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          chart.data.datasets.forEach((dataset, i) => {
+            chart.getDatasetMeta(i).data.forEach((bar, j) => {
+              const val = dataset.data[j];
+              if (val === 0) return;
+              ctx.save(); ctx.fillStyle = '#D6E4F2'; ctx.font = '700 8px Poppins, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(val + '%', bar.x + 4, bar.y); ctx.restore();
+            });
+          });
+        }
+      }]
+    });
+    const rtLegEl = document.getElementById('lbResourceTypeLegend');
+    if (rtLegEl) rtLegEl.innerHTML = `
+      <span><span style="display:inline-block;width:10px;height:10px;background:#EC6D25;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>% Stores Captured</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#4A7AB0;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>% Tasks Captured</span>`;
+    const rtChartTag = document.getElementById('lbResourceTypeChartTag');
+    if (rtChartTag) rtChartTag.textContent = `week ${last4[last4.length-1].week}`;
   }
 
   // ---- Regional Summary Heatmap ----
