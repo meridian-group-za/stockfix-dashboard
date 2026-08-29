@@ -398,6 +398,8 @@
     var out = document.getElementById('railSignOut');
     if (out) out.addEventListener('click', function(e){
       e.preventDefault();
+      sessionStorage.removeItem('stockfixClientToken');
+      sessionStorage.removeItem('stockfixClientName');
       try { if (window.msalInstance && msalInstance.logoutRedirect) { msalInstance.logoutRedirect(); return; } } catch(_){}
       location.reload();
     });
@@ -898,6 +900,23 @@
 
     <button id="signInBtn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#EC6D25;color:#fff;border:none;border-radius:8px;padding:14px 0;font-size:13px;font-weight:700;letter-spacing:.4px;cursor:pointer;box-shadow:0 4px 16px rgba(236,109,37,0.4);font-family:inherit;"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff;"><path d="M3 3h8.5v8.5H3V3zm9.5 0H21v8.5h-8.5V3zM3 12.5h8.5V21H3v-8.5zm9.5 0H21V21h-8.5v-8.5z"/></svg>Sign in with Microsoft</button>
 
+    <!-- Client-contact login (Carin, 2026-08-29): external client contacts
+         (e.g. Sir Fruit's Morvin) have no Meridian Microsoft/Entra account
+         and can never complete the button above -- it hits Graph directly
+         with their own token, which has no permission on Meridian's
+         SharePoint site, giving "Sign-in succeeded but data load failed."
+         This is a second, separate path: email/password against
+         /api/client-login, then all data goes through /api/stockfix-data
+         with the returned token instead of a direct Graph call. -->
+    <div style="text-align:center;margin-top:14px;">
+      <a href="#" id="showClientLoginLink" style="font-size:11.5px;color:#7FA3C9;text-decoration:underline;">Client login (email &amp; password)</a>
+    </div>
+    <div id="clientLoginForm" style="display:none;margin-top:16px;">
+      <input id="clientLoginEmail" type="email" placeholder="Email address" autocomplete="username" style="width:100%;box-sizing:border-box;background:#0B1F3D;border:1px solid #17305a;border-radius:8px;padding:11px 12px;font-size:12.5px;color:#EAF1FA;font-family:inherit;margin-bottom:8px;">
+      <input id="clientLoginPassword" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;box-sizing:border-box;background:#0B1F3D;border:1px solid #17305a;border-radius:8px;padding:11px 12px;font-size:12.5px;color:#EAF1FA;font-family:inherit;margin-bottom:10px;">
+      <button id="clientLoginBtn" style="width:100%;background:#0E2748;color:#EAF1FA;border:1px solid #17305a;border-radius:8px;padding:12px 0;font-size:13px;font-weight:700;letter-spacing:.4px;cursor:pointer;font-family:inherit;">Sign in</button>
+    </div>
+
     <div id="authLoadingBox" class="auth-loading-box" aria-live="polite">
       <div class="auth-spinner" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -945,6 +964,123 @@ const msalInstance = new msal.PublicClientApplication({
 });
 
 const GRAPH_SCOPES = ["Sites.Read.All"];
+
+// =========================================================================
+// Client-contact login (Carin, 2026-08-29)
+// =========================================================================
+// External client contacts (e.g. Sir Fruit's Morvin Martin) have no Meridian
+// Microsoft/Entra account, so "Sign in with Microsoft" can never work for
+// them -- it fetches straight from Graph using the signed-in user's own
+// SharePoint permission, which they don't have. These contacts already exist
+// in the backend (see manage_stockfix_client_users.ps1 / /api/client-login)
+// but this page never had a second sign-in path for them until now.
+// AUTH_MODE picks which data path everything below uses: 'msal' (existing,
+// unchanged) fetches straight from SharePoint via Graph; 'client' goes
+// through /api/stockfix-data with the token from /api/client-login instead.
+const STOCKFIX_API_BASE = "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net/api";
+let AUTH_MODE = null; // 'msal' | 'client'
+let clientAuthToken = sessionStorage.getItem('stockfixClientToken') || null;
+let clientAuthName = sessionStorage.getItem('stockfixClientName') || '';
+
+async function apiFetchJson(relativePath) {
+  const res = await fetch(`${STOCKFIX_API_BASE}/stockfix-data/${relativePath}`, {
+    headers: { 'X-Client-Auth': clientAuthToken },
+  });
+  if (!res.ok) {
+    let msg = `stockfix-data ${relativePath} failed (${res.status})`;
+    try { const body = await res.json(); if (body && body.error) msg = body.error; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function loadAllDataViaClientApi() {
+  AUTH_MODE = 'client';
+  setAuthLoading("Loading dashboard...", "Loading summary and week index...");
+  const [summaryRows, weeksIdx] = await Promise.all([
+    apiFetchJson('summary.json'),
+    apiFetchJson('weeks_index.json'),
+  ]);
+  buildRollups(summaryRows);
+  weeksIndex = weeksIdx;
+
+  setAuthLoading("Loading dashboard...", "Loading leaderboard data...");
+  try {
+    const lbRows = await apiFetchJson('leaderboard_rollup.json');
+    buildLeaderboardRollup(lbRows);
+  } catch (e) {
+    console.warn('leaderboard_rollup.json not found or failed to load; Leaderboard will fall back to no rollup data.', e);
+    buildLeaderboardRollup([]);
+  }
+  LATEST_WEEK = weeksIndex[weeksIndex.length - 1].week;
+  state.week = LATEST_WEEK;
+
+  setAuthLoading("Loading dashboard...", `Loading latest week (${LATEST_WEEK})...`);
+  await loadWeek(null, LATEST_WEEK);
+
+  if (window.setRailUser) setRailUser(clientAuthName || 'Client');
+  document.getElementById("authOverlay").style.display = "none";
+  document.body.classList.remove("auth-pending");
+  initUI();
+}
+
+function clientLoginErrorEl() {
+  return document.getElementById("authError");
+}
+
+document.getElementById("showClientLoginLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  document.getElementById("clientLoginForm").style.display = "block";
+  document.getElementById("showClientLoginLink").style.display = "none";
+});
+
+document.getElementById("clientLoginBtn").addEventListener("click", async () => {
+  const email = document.getElementById("clientLoginEmail").value.trim();
+  const password = document.getElementById("clientLoginPassword").value;
+  const errEl = clientLoginErrorEl();
+  errEl.textContent = "";
+  if (!email || !password) { errEl.textContent = "Enter your email and password."; return; }
+
+  const btn = document.getElementById("clientLoginBtn");
+  btn.disabled = true; btn.textContent = "Signing in...";
+  try {
+    const res = await fetch(`${STOCKFIX_API_BASE}/client-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const body = await res.json();
+    if (!res.ok || !body.ok) {
+      errEl.textContent = body.error || "Invalid email or password.";
+      btn.disabled = false; btn.textContent = "Sign in";
+      return;
+    }
+    clientAuthToken = body.token;
+    clientAuthName = body.name || email;
+    sessionStorage.setItem('stockfixClientToken', clientAuthToken);
+    sessionStorage.setItem('stockfixClientName', clientAuthName);
+    setAuthLoading("Loading dashboard...", "Sign-in complete. Please wait while StockFix loads your data.");
+    await loadAllDataViaClientApi();
+  } catch (e) {
+    console.error("Client login failed:", e);
+    errEl.textContent = "Sign-in succeeded but data load failed. Please refresh.";
+    clearAuthLoading();
+    btn.disabled = false; btn.textContent = "Sign in";
+  }
+});
+
+// Reconnect a client session already stored in this tab, same as the MSAL
+// silent-token check below does for Microsoft accounts.
+if (clientAuthToken) {
+  setAuthLoading("Loading dashboard...", "Please wait while StockFix reconnects to your session.");
+  loadAllDataViaClientApi().catch((e) => {
+    console.warn("Stored client session failed, showing login screen:", e);
+    sessionStorage.removeItem('stockfixClientToken');
+    sessionStorage.removeItem('stockfixClientName');
+    clientAuthToken = null;
+    clearAuthLoading();
+  });
+}
 
 function setAuthLoading(title, subtitle) {
   const box = document.getElementById("authLoadingBox");
@@ -995,6 +1131,11 @@ msalInstance.handleRedirectPromise().then(async (result) => {
 }).catch(e => console.error("handleRedirectPromise error:", e));
 
 async function getGraphToken() {
+  // Client-contact sessions have no MSAL account at all -- every call site
+  // below does `const token = await getGraphToken(); loadWeek(token, ...)`,
+  // so rather than threading AUTH_MODE through each one, short-circuit here
+  // and let loadWeek() itself ignore this value in client mode.
+  if (AUTH_MODE === 'client') return clientAuthToken;
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) throw new Error("Not signed in");
   try {
@@ -1131,6 +1272,7 @@ function buildLeaderboardRollup(rows) {
 }
 
 async function loadAllData(token) {
+  AUTH_MODE = 'msal';
   document.getElementById("authStatus").textContent = "Resolving SharePoint site...";
   setAuthLoading("Loading dashboard...", "Connecting to SharePoint...");
   await resolveSiteAndDrive(token);
@@ -1171,8 +1313,17 @@ async function loadWeek(token, week) {
   if (weekRowCache[week]) return weekRowCache[week];
   const entry = weeksIndex.find(w => w.week === week);
   if (!entry) return [];
-  const gzPath = `${DASHBOARD_DATA_FOLDER}/${entry.file}.gz`; // weeks/week_YYYY-MM-DD.jsonl.gz
-  const rows = await fetchGzJsonlFile(token, gzPath);
+  let rows;
+  if (AUTH_MODE === 'client') {
+    // /api/stockfix-data serves the plain (already gzip-decompressed and
+    // parsed) .jsonl itself, not the .gz -- the server does that step once
+    // and returns real JSON either way (see function_app.py's
+    // _stockfix_fetch_gz_jsonl).
+    rows = await apiFetchJson(entry.file);
+  } else {
+    const gzPath = `${DASHBOARD_DATA_FOLDER}/${entry.file}.gz`; // weeks/week_YYYY-MM-DD.jsonl.gz
+    rows = await fetchGzJsonlFile(token, gzPath);
+  }
   weekRowCache[week] = rows;
   return rows;
 }
