@@ -960,7 +960,10 @@ const msalInstance = new msal.PublicClientApplication({
     authority: `https://login.microsoftonline.com/${MSAL_CONFIG.tenantId}`,
     redirectUri: MSAL_CONFIG.redirectUri,
   },
-  cache: { cacheLocation: "sessionStorage" },
+  // localStorage, not sessionStorage: the portal opens this dashboard in a
+  // new tab, where sessionStorage is empty by definition, so the sign-in
+  // never carried over and it asked for one every time.
+  cache: { cacheLocation: "localStorage" },
 });
 
 const GRAPH_SCOPES = ["Sites.Read.All"];
